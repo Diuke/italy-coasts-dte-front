@@ -1,0 +1,60 @@
+<ng-template #loginModal let-modal>
+  <div class="modal-header">
+    <h4 class="modal-title">Log In</h4>
+    <button type="button" class="close" aria-label="Close" (click)="modal.dismiss('Cross click')">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+  <div class="modal-body">
+    <form (ngSubmit)="tryLogin(loginForm)" #loginForm="ngForm">
+      <div class="mb-3">
+        <label for="exampleInputEmail1" class="form-label">Username *</label>
+        <input type="text" class="form-control" ngModel name="loginFormUsername" id="loginFormUsername" aria-describedby="emailHelp">
+      </div>
+      <div class="mb-3">
+        <label for="exampleInputPassword1" class="form-label">Password *</label>
+        <input type="password" class="form-control" ngModel name="loginFormPassword" id="loginFormPassword">
+      </div>
+
+      <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-block btn-success" >Login</button>
+      </div>
+
+    </form>
+  </div>
+  <div class="modal-footer">
+    Don't have an account? Create one in seconds!
+  </div>
+</ng-template>
+
+<nav class="navbar navbar-expand-md navbar-dark bg-dark">
+    <div class="container-fluid">
+      <a class="navbar-brand">Italy Coast DTE</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarCollapse">
+        <ul class="navbar-nav me-auto mb-2 mb-md-0">
+        </ul>
+
+        <div style="border-left:1px solid rgb(63, 63, 63); height:50px"></div>
+
+        <button *ngIf="!loggedIn" class="btn btn-outline-success ms-3" type="submit" (click)="openLoginModal(loginModal)">Login</button>
+        <div class="ms-3" *ngIf="loggedIn">
+          <span style="color: white;">Welcome, User</span>
+          <button class="btn btn-outline-danger ms-3" type="submit" (click)="logout()">Logout</button>
+        </div>
+
+      </div>
+    </div>
+  </nav>
+
+<div class="map-wrapper">
+    <app-dtemap></app-dtemap>
+</div>
+
+<footer class="footer mt-auto py-3 bg-light">
+    <div class="container">
+        <span class="text-muted">Politecnico di Milano © - All rights reserved</span>
+    </div>
+</footer>

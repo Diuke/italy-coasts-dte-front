@@ -1,0 +1,22 @@
+<div class="layer-group">
+    <span class="layer-group-title list-group-item selectable" (click)="toggleExpanded()">
+        {{node.name}} ({{numberOfChildren}})
+        <fa-icon *ngIf="!expanded" class="icon selectable" [icon]="_faGreaterThan"></fa-icon>
+        <fa-icon *ngIf="expanded" class="icon selectable" [icon]="_faChevronDown"></fa-icon>
+    </span>
+
+    <div [hidden]="!expanded">
+        <ul class="list-group">
+            <li class="list-group-item" *ngFor="let layer of childrenLayers">
+                <div class="form-check form-switch">
+                    <input [id]="layer.data.id" class="form-check-input" type="checkbox" [value]="layer.selected"
+                        (change)="emitChangeSelected(layer)">
+                    <label class="form-check-label" [for]="layer.data.id">
+                        {{layer.data.readable_name}}
+                    </label>
+
+                </div>
+            </li>
+        </ul>
+    </div>
+</div>

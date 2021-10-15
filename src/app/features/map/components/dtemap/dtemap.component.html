@@ -1,0 +1,184 @@
+<div class="main-wrapper">
+    <div class="icon-container" (click)="toggleSidebar()"
+        [class]="{'icon-open': sidebarOpen, 'icon-closed': !sidebarOpen}">
+        <fa-icon *ngIf="sidebarOpen" class="icon" [icon]="_faGreaterThan"></fa-icon>
+        <fa-icon *ngIf="!sidebarOpen" class="icon" [icon]="_faLessThan"></fa-icon>
+    </div>
+
+    <div class="sidebar" [class]="{'sidebar-open': sidebarOpen, 'sidebar-closed': !sidebarOpen}">
+
+        <nav>
+            <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                <button class="nav-link active" id="nav-context-tab" data-bs-toggle="tab" data-bs-target="#nav-context"
+                    type="button" role="tab" aria-controls="nav-context" aria-selected="true">Context</button>
+                <button class="nav-link" id="nav-selection-tab" data-bs-toggle="tab" data-bs-target="#nav-selection"
+                    type="button" role="tab" aria-controls="nav-selection" aria-selected="true">Selection</button>
+
+                <button class="nav-link" id="nav-layers-tab" data-bs-toggle="tab" data-bs-target="#nav-layers"
+                    type="button" role="tab" aria-controls="nav-layers" aria-selected="true">Layers</button>
+
+                <button class="nav-link" id="nav-results-tab" data-bs-toggle="tab" data-bs-target="#nav-results"
+                    type="button" role="tab" aria-controls="nav-results" aria-selected="false">Results</button>
+                <button class="nav-link" id="nav-scenarios-tab" data-bs-toggle="tab" data-bs-target="#nav-scenarios"
+                    [disabled]="!isLoggedIn" type="button" role="tab" aria-controls="nav-scenarios"
+                    aria-selected="false" *ngIf="isLoggedIn">Scenarios</button>
+            </div>
+        </nav>
+
+        <div class="tab-content" id="nav-tabContent">
+            <!-- Tab Context -->
+            <div class="tab-pane container fade show active" id="nav-context" role="tabpanel"
+                aria-labelledby="nav-context-tab">
+                <div class="context-section">
+                    <span>Select Limits</span>
+                    <select [disabled]="contextState == CONTEXT_SET" class="form-select"
+                        aria-label="Default select example" [(ngModel)]="selectedLimit"
+                        (change)="changeSelectedLimit()">
+                        <option value="1">12NM sea</option>
+                        <option value="2">Official sea limits</option>
+                    </select>
+                </div>
+
+                <div class="context-section">
+                    <span>From</span>
+                    <div class="">
+                        <input [disabled]="contextState == CONTEXT_SET" [(ngModel)]="dateFrom" type="date"
+                            class="form-control">
+                    </div>
+                </div>
+
+                <div class="context-section">
+                    <span>To</span>
+                    <div class="">
+                        <input [disabled]="contextState == CONTEXT_SET" [(ngModel)]="dateTo" type="date"
+                            class="form-control">
+                    </div>
+                </div>
+
+                <div class="context-section text-center">
+                    <button *ngIf="aoiState == NO_AOI" class="btn btn-dark w-100" (click)="toggleDrawingAOI()">
+                        Draw AOI
+                    </button>
+                    <button *ngIf="aoiState == DRAWING_AOI" class="btn btn-warning w-100" (click)="toggleDrawingAOI()">
+                        Reset Drawing
+                    </button>
+                    <button [disabled]="contextState == CONTEXT_SET" *ngIf="aoiState == SELECTED_AOI"
+                        class="btn btn-danger w-100" (click)="toggleDrawingAOI()">
+                        Remove AOI
+                    </button>
+
+                    <span class="w-100">OR</span>
+
+                    <button [disabled]="aoiState == SELECTED_AOI" class="btn btn-secondary w-100">
+                        Load AOI from file
+                    </button>
+                </div>
+
+                <div class="context-section text-center">
+                    <button *ngIf="contextState == CONTEXT_NOT_SET" (click)="setContext()"
+                        class="btn btn-success w-100">
+                        Set Context
+                    </button>
+                    <button *ngIf="contextState == CONTEXT_SET" class="btn btn-success w-100" (click)="resetContext()">
+                        Reset Context
+                    </button>
+                </div>
+            </div>
+            <!-- END Tab Context -->
+
+            <!-- Tab Layers Selection -->
+            <div class="tab-pane fade" id="nav-selection" role="tabpanel" aria-labelledby="nav-selection-tab">
+                <div class="mt-3">
+                    <div class="text-center w-100">
+                        <span class="" *ngIf="!listOfLayersWMS">No Layers To Select</span>
+                    </div>
+
+                    <div *ngIf="layersHierarchy.length > 0" class="container">
+                        <div *ngFor="let node of layersHierarchy">
+                            <app-tree-view [node]="node" (layerManipulation)="handleLayerManipulation($event)">
+                            </app-tree-view>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- END Tab Layers -->
+
+            <!-- Tab Layers -->
+            <div class="tab-pane fade" id="nav-layers" role="tabpanel" aria-labelledby="nav-layers-tab">
+                <div class="mt-3">
+                    <div class="text-center w-100">
+                        <span class="" *ngIf="listOfSelectedLayers.length == 0">No Layers Selected</span>
+                    </div>
+
+                    <div *ngIf="listOfSelectedLayers.length > 0" class="container">
+                        <ul class="list-group">
+                            <li class="list-group-item mb-3" *ngFor="let layer of listOfSelectedLayers">
+                                <div class="container-fluid">
+                                    <div class="row">
+                                        <div class="col-9">
+                                            <label class="form-check-label selected-layer-text" [for]="'layer' + layer.data.id"
+                                                data-bs-toggle="tooltip" data-bs-placement="top" title="Tooltip on top">
+                                                <span>{{layer.data.readable_name}}</span>
+                                            </label>
+                                        </div>
+                                        <div class="col-1">
+                                            <fa-icon class="selectable" [icon]="_faInfoCircle" (click)="openInfoLayer(layer.data.id)"></fa-icon>
+                                        </div>
+                                        <div class="col-1">
+                                            <fa-icon *ngIf="layer.visible" class="eye-visible selectable" [icon]="_faEye" (click)="toggleLayerVisibility(layer.data.id)"></fa-icon>
+                                            <fa-icon *ngIf="!layer.visible" class="eye-invisible selectable" [icon]="_faEyeSlash"  (click)="toggleLayerVisibility(layer.data.id)"></fa-icon>
+                                        </div>
+                                        <div class="col-1">
+                                            <fa-icon (click)="toggleLayerExpanded(layer.data.id)" *ngIf="layer.expanded" class="selectable" [icon]="_faChevronUp"></fa-icon>
+                                            <fa-icon (click)="toggleLayerExpanded(layer.data.id)" *ngIf="!layer.expanded" class="selectable" [icon]="_faChevronDown"></fa-icon>
+                                        </div>
+
+                                    </div>
+                                    <div [hidden]="!layer.expanded">
+                                        <label class="form-label">Opacity {{layer.opacity}}</label>
+                                        <input type="range" [(ngModel)]="layer.opacity" min="0" max="100" class="form-range"
+                                            (change)="setLayerOpacity(layer.id, layer.opacity)">
+                                    </div>
+
+                                    <div [hidden]="!layer.expanded" *ngFor="let param of layer.params">
+                                        <label class="form-label">{{param}} {{layer.paramsValues[param]}}</label>
+                                        <input type="text" [(ngModel)]="layer.paramsValues[param]" min="0" max="100"
+                                            class="form-range" (change)="setLayerOpacity(layer.id, layer.opacity)">
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <!-- END Tab Layers -->
+
+            <!-- Tab Results -->
+            <div class="tab-pane fade" id="nav-results" role="tabpanel" aria-labelledby="nav-results-tab">
+                <button *ngIf="captureState == NOT_CAPTURING_POINT" class="btn btn-secondary w-100"
+                    (click)="capturePoint()">
+                    Capture Point
+                </button>
+
+                <button *ngIf="captureState == CAPTURING_POINT" class="btn btn-warning w-100"
+                    (click)="cancelCapturePoint()">
+                    Cancel Capture Point
+                </button>
+            </div>
+            <!-- END Tab Analysis -->
+
+            <!-- Tab Scenarios -->
+            <div class="tab-pane fade" id="nav-scenarios" role="tabpanel" aria-labelledby="nav-scenarios-tab">...</div>
+            <!-- END Tab Scenarios -->
+        </div>
+
+    </div>
+
+    <div class="mouse-position" id="mouse-position">
+    </div>
+
+    <div class="map-container" id="map">
+
+    </div>
+
+</div>

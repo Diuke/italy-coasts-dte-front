@@ -1,0 +1,102 @@
+.map-container{
+    height: 100%;
+    width: 100%;
+}
+
+.main-wrapper{
+    height: 100%;
+    overflow-x: hidden;
+}
+
+.icon-container{
+    position: absolute;
+    z-index: 99999;
+    background: #042e03;
+    color: rgb(161, 161, 161);
+    border: 1px solid rgb(22, 116, 58);
+    border-radius: 5px;
+    top: 9%;
+    font-size: 25px;
+    cursor: pointer;
+}
+
+.icon-open{
+    right: 520px;
+}
+
+.icon-closed{
+    right: 20px;
+}
+
+.icon{
+    padding: 5px 15px;
+}
+
+.sidebar{
+    width: 500px;
+    height: 84%;
+    position: absolute;
+    background: rgb(240, 240, 240);
+    z-index: 999;
+    overflow-y: scroll;
+}
+
+.sidebar-open{
+    right: 0;
+}
+
+.sidebar-closed{
+    right: -500px;
+}
+
+.context-section{
+    padding: 10px 0;
+    border-bottom: 1px solid #042e0377;
+}
+
+.mouse-position{
+    position: absolute;
+    top: 9%;
+    left: 50px;
+    z-index: 1000;
+    border: 1px solid rgb(189, 189, 189);
+    background: rgb(231, 231, 231);
+    padding: 3px;
+    width: 140px;
+    text-align: center;
+}
+
+.values-box{
+    position: absolute;
+    bottom: 9%;
+    left: 5px;
+    width: 400px;
+    height: 200px;
+    z-index: 1000;
+    background-color: aliceblue;
+    border: 1px solid #042e03;
+    border-radius: 5px;
+    padding: 5px;
+    overflow-y: scroll;
+}
+
+.value-section{
+    padding: 10px 0;
+    border-bottom: 1px solid #042e0377;
+}
+
+.selected-layer-text{
+    text-overflow: ellipsis;
+}
+
+.eye-visible{
+    color: #064dd1;
+}
+
+.eye-invisible{
+    color: #888888;
+}
+
+.selectable{
+    cursor: pointer;
+}
