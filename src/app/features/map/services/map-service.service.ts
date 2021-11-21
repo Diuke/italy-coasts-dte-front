@@ -23,7 +23,10 @@ export class MapServiceService {
   }
 
   getLayerHierarchy(start_date: string, end_date: string){
-    let URL = this.urlsService.buildUrl("layer_hierarchy") + "?" + start_date + ";" + end_date;
+    let URL = this.urlsService.buildUrl("layer_hierarchy");
+    if(start_date && end_date){
+      URL += "?start_date=" + start_date + "&end_date=" + end_date;
+    }
     return fetch(URL);
   }
 }

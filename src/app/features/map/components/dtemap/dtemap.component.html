@@ -1,3 +1,7 @@
+<div class="loading-fullscreen" *ngIf="loading">
+    <div class="loader"></div>
+</div>
+
 <div class="main-wrapper">
     <div class="icon-container" (click)="toggleSidebar()"
         [class]="{'icon-open': sidebarOpen, 'icon-closed': !sidebarOpen}">
@@ -116,35 +120,58 @@
                                 <div class="container-fluid">
                                     <div class="row">
                                         <div class="col-9">
-                                            <label class="form-check-label selected-layer-text" [for]="'layer' + layer.data.id"
-                                                data-bs-toggle="tooltip" data-bs-placement="top" title="Tooltip on top">
+                                            <label class="form-check-label selected-layer-text"
+                                                [for]="'layer' + layer.data.id" data-bs-toggle="tooltip"
+                                                data-bs-placement="top" title="Tooltip on top">
                                                 <span>{{layer.data.readable_name}}</span>
                                             </label>
                                         </div>
                                         <div class="col-1">
-                                            <fa-icon class="selectable" [icon]="_faInfoCircle" (click)="openInfoLayer(layer.data.id)"></fa-icon>
+                                            <ng-template #layerDataDescription>{{layer.data.description}}</ng-template>
+                                            <a type="button" placement="left" [ngbPopover]="layerDataDescription">
+                                                <fa-icon class="selectable" [icon]="_faInfoCircle"
+                                                    (click)="openInfoLayer(layer.data.id)"></fa-icon>
+                                            </a>
                                         </div>
                                         <div class="col-1">
-                                            <fa-icon *ngIf="layer.visible" class="eye-visible selectable" [icon]="_faEye" (click)="toggleLayerVisibility(layer.data.id)"></fa-icon>
-                                            <fa-icon *ngIf="!layer.visible" class="eye-invisible selectable" [icon]="_faEyeSlash"  (click)="toggleLayerVisibility(layer.data.id)"></fa-icon>
+                                            <fa-icon *ngIf="layer.visible" class="eye-visible selectable"
+                                                [icon]="_faEye" (click)="toggleLayerVisibility(layer.data.id)">
+                                            </fa-icon>
+                                            <fa-icon *ngIf="!layer.visible" class="eye-invisible selectable"
+                                                [icon]="_faEyeSlash" (click)="toggleLayerVisibility(layer.data.id)">
+                                            </fa-icon>
                                         </div>
                                         <div class="col-1">
-                                            <fa-icon (click)="toggleLayerExpanded(layer.data.id)" *ngIf="layer.expanded" class="selectable" [icon]="_faChevronUp"></fa-icon>
-                                            <fa-icon (click)="toggleLayerExpanded(layer.data.id)" *ngIf="!layer.expanded" class="selectable" [icon]="_faChevronDown"></fa-icon>
+                                            <fa-icon (click)="toggleLayerExpanded(layer.data.id)" *ngIf="layer.expanded"
+                                                class="selectable" [icon]="_faChevronUp"></fa-icon>
+                                            <fa-icon (click)="toggleLayerExpanded(layer.data.id)"
+                                                *ngIf="!layer.expanded" class="selectable" [icon]="_faChevronDown">
+                                            </fa-icon>
                                         </div>
 
                                     </div>
                                     <div [hidden]="!layer.expanded">
-                                        <label class="form-label">Opacity {{layer.opacity}}</label>
-                                        <input type="range" [(ngModel)]="layer.opacity" min="0" max="100" class="form-range"
-                                            (change)="setLayerOpacity(layer.id, layer.opacity)">
+                                        <div>
+                                            <label class="form-label">Opacity</label>
+                                            <input type="range" [(ngModel)]="layer.opacity" min="0" max="100"
+                                                class="form-range"
+                                                (change)="setLayerOpacity(layer.data.id, layer.opacity)">
+                                        </div>
+
+                                        <div *ngFor="let param of layer.params">
+                                            <label class="form-label">{{param}}</label>
+                                            <select [(ngModel)]="layer.paramsObject[param].selected"
+                                                (change)="setLayerParameter(layer.data.id)" class="form-select">
+                                                <option *ngFor="let optionValue of layer.paramsObject[param].values"
+                                                    [value]="optionValue">{{optionValue}}</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <img [src]="layer.data.legend_url" alt="">
+                                        </div>
                                     </div>
 
-                                    <div [hidden]="!layer.expanded" *ngFor="let param of layer.params">
-                                        <label class="form-label">{{param}} {{layer.paramsValues[param]}}</label>
-                                        <input type="text" [(ngModel)]="layer.paramsValues[param]" min="0" max="100"
-                                            class="form-range" (change)="setLayerOpacity(layer.id, layer.opacity)">
-                                    </div>
                                 </div>
                             </li>
                         </ul>

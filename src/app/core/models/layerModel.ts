@@ -16,7 +16,7 @@ export class LayerModel {
     source: string
     service_url: string
     metadata_url: string
-    leyend_url: string
+    legend_url: string
     more_data_url: string
     copyright: string
 }

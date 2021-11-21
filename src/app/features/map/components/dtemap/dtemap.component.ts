@@ -21,6 +21,8 @@ import { createStringXY } from 'ol/coordinate';
 import { UtilsService } from 'src/app/core/services/utils.service';
 import { MediatorService } from 'src/app/core/services/mediator.service';
 import { LayerModel } from 'src/app/core/models/layerModel';
+import { CopernicusMarineServicesService } from 'src/app/core/services/drivers/copernicus-marine-services.service';
+import { GlobalsService } from 'src/app/core/services/globals.service';
 
 @Component({
   selector: 'app-dtemap',
@@ -56,6 +58,7 @@ export class DTEMapComponent implements OnInit {
   /** Variable to control when the layers are fully loaded */
   loadingLayers: boolean = true;
   isLoggedIn: boolean;
+  loading: boolean = false;
 
   /** List of available layers with given contextual parameters */
   wmsLayers: any[] = [];
@@ -67,7 +70,7 @@ export class DTEMapComponent implements OnInit {
 
   listOfSelectedLayers: any[] = [];
 
-  layerMap: { [id: number]: { data: LayerModel, layer: Layer<any>, expanded: boolean, visible: boolean, opacity: number, params: [], paramsValues: {} } } = {};
+  layerMap: { [id: number]: { data: LayerModel, layer: Layer<any>, expanded: boolean, visible: boolean, opacity: number, params: [], paramsObject: {[key: string]: { values: string[], default: string, selected: string }} } } = {};
 
   limitLayer12NM: VectorLayer<any>;
   limitLayerAll: VectorLayer<any>;
@@ -97,8 +100,8 @@ export class DTEMapComponent implements OnInit {
   activeBoundaryLayer: VectorLayer<VectorSource<Polygon>>;
 
   //Values of the date range form controls
-  dateFrom: string;
-  dateTo: string;
+  dateFrom: string = "2018-01-01";
+  dateTo: string = "2021-11-01";
 
   layersHierarchy: any[] = [];
 
@@ -107,7 +110,11 @@ export class DTEMapComponent implements OnInit {
   constructor(
     private mapService: MapServiceService,
     private authService: AuthService,
-    private mediator: MediatorService
+    private mediator: MediatorService,
+    public globals: GlobalsService,
+    private utils: UtilsService,
+
+    private driver: CopernicusMarineServicesService
   ) { }
 
   ngOnInit(): void {
@@ -167,7 +174,6 @@ export class DTEMapComponent implements OnInit {
               { 'INFO_FORMAT': 'text/xml' }
             );
             if (url) {
-              console.log(url);
 
               fetch(url)
                 .then((response) => response.text())
@@ -238,7 +244,7 @@ export class DTEMapComponent implements OnInit {
   }
 
   fetchLayerList() {
-    this.mapService.getLayerHierarchy("", "")
+    this.mapService.getLayerHierarchy(this.dateFrom, this.dateTo)
       .then(response => response.json())
       .then(data => {
         this.layersHierarchy = data;
@@ -265,13 +271,14 @@ export class DTEMapComponent implements OnInit {
     let aoiLayer = this.aoiVectorLayer;
 
     for (let i = 0; i < this.listOfLayersWMS.length; i++) {
-      this.listOfLayersWMS[i].parameters = this.listOfLayersWMS[i].parameters.split(",");
+      if(this.listOfLayersWMS[i].parameters == ""){
+        this.listOfLayersWMS[i].parameters = [];
+      } else {
+        this.listOfLayersWMS[i].parameters = this.listOfLayersWMS[i].parameters.split(",");
+      }
+      
       let layerData = this.listOfLayersWMS[i];
       let parameters = layerData.parameters;
-      let parametersObject: any = {};
-      parameters.forEach((element: string) => {
-        parametersObject[element] = 0;
-      });
       
       let frequency = layerData.frequency == null ? "" : layerData.frequency;
 
@@ -281,15 +288,6 @@ export class DTEMapComponent implements OnInit {
         'BBOX': this.aoi_BBOX.toString(),
         'CRS': "EPSG:4326"
       };
-      layerData.parameters.forEach((element: string) => {
-        if(element == "elevation"){
-          layerParams[element] = this.mediator.getDefaultParamValue("elevation");
-        }
-        if(element == "time"){
-          layerParams[element] = this.mediator.getDefaultParamValue("time-" + frequency);
-        }
-        parametersObject[element] = layerParams[element];
-      });
       
       let layer = new TileLayer({
         source: new TileWMS({
@@ -323,7 +321,7 @@ export class DTEMapComponent implements OnInit {
         expanded: true,
         opacity: 100,
         params: parameters,
-        paramsValues: parametersObject
+        paramsObject: {}
       }
 
       this.map.addLayer(layer);
@@ -455,14 +453,26 @@ export class DTEMapComponent implements OnInit {
     this.layerMap[layerId].expanded = !this.layerMap[layerId].expanded;
   }
 
-  openInfoLayer(layerId: number){
-    
+  setLayerParameter(layerId: number){
+    let layer = this.layerMap[layerId];
+    let layerSource: TileWMS = layer.layer.getSource();
+    let parameters = layerSource.getParams();
+
+    layer.params.forEach((param: string) => {
+      parameters[param] = layer.paramsObject[param].selected;
+    });
+
+    layerSource.updateParams(parameters);
   }
 
   setLayerOpacity(layerId: number, opacity: number) {
     let layer = this.layerMap[layerId];
     let newOpacity = opacity / 100;
     layer.layer.setOpacity(newOpacity);
+  }
+
+  openInfoLayer(layerId: number){
+
   }
 
   openSidebar() {
@@ -488,6 +498,14 @@ export class DTEMapComponent implements OnInit {
   }
 
   validateContext(): boolean {
+    console.log(this.dateFrom, this.dateTo);
+    
+    if(this.dateFrom == "" || this.dateTo == ""){
+      return false;
+    }
+    if(this.aoiState != this.SELECTED_AOI){
+      return false;
+    }
     return true;
   }
 
@@ -497,6 +515,12 @@ export class DTEMapComponent implements OnInit {
       this.contextState = this.CONTEXT_SET;
       this.fetchLayerList();
       this.aoi_BBOX = this.aoiSource.getExtent();
+
+      let startDateSplit = this.dateFrom.split("-");
+      let endDateSplit = this.dateTo.split("-");
+      this.globals.contextStartDate = new Date(parseInt(startDateSplit[0]), parseInt(startDateSplit[1])-1, parseInt(startDateSplit[2]));
+      this.globals.contextEndDate = new Date(parseInt(endDateSplit[0]), parseInt(endDateSplit[1])-1, parseInt(endDateSplit[2])); 
+      
     }
   }
 
@@ -523,9 +547,55 @@ export class DTEMapComponent implements OnInit {
     this.deactivateDrawingAOI();
   }
 
-  handleLayerManipulation(data: { id: number, event: string, value: any }) {
-    console.log(data);
+  initLayerParameters(layer: any){    
+    let _layer = this.layerMap[layer.data.id];
+    this.loading = true;
+    let layerSource: TileWMS = _layer.layer.getSource();
+    let updatedLayerParams: any = layerSource.getParams();
+    let paramsToLoad = 0;
+    if(layer.params != ""){
+      paramsToLoad = layer.params.length;
+    }
 
+    if(paramsToLoad == 0) this.loading = false;
+    let loadedParams = 0;
+    for(let i = 0; i < layer.params.length; i++){
+      let paramName = layer.params[i];
+      //Preallocate to avoid console warnings
+      layer.paramsObject[paramName] = {
+        default: "",
+        values: [],
+        selected: ""
+      };
+
+      let globalStartDate = this.globals.contextStartDate;
+      let globalEndDate = this.globals.contextEndDate;
+      this.mediator.getDimensionValues(_layer.data, paramName)?.subscribe((param_object: any) => {
+        let values = param_object["values"];
+        if(paramName == "time"){
+          values = this.utils.cropListOfDates(globalStartDate, globalEndDate, param_object["values"]);
+        }
+        
+        //format = { default: string, units: string, name: string, values: list
+
+        layer.paramsObject[paramName] = {
+          default: param_object["default"],
+          values: values,
+          selected: values[0]
+        };
+        layerSource.updateParams(updatedLayerParams);
+        updatedLayerParams[paramName] = layer.paramsObject[paramName].selected;
+
+        loadedParams++;
+        this.loading = loadedParams < paramsToLoad;
+      }, (error: any) => {
+        loadedParams++;
+        this.loading = loadedParams < paramsToLoad;
+      }); 
+    }
+  }
+
+  handleLayerManipulation(data: { id: number, event: string, value: any }) {
     if (data.event == "visibility") {
       this.toggleLayerVisibility(data.id);
     }
@@ -541,15 +611,15 @@ export class DTEMapComponent implements OnInit {
         layer.layer.setVisible(false);
         layer.layer.setOpacity(1);
         layer.visible = false;
-        layer.opacity = 100;
+        layer.opacity = 100;      
       } else {
         layer.layer.setVisible(true);
         layer.visible = true;
         layer.expanded = true;
+        this.initLayerParameters(layer);
         this.listOfSelectedLayers.push(layer);
       }
     }
-    console.log(this.listOfSelectedLayers);
     
   }
 }
