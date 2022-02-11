@@ -8,6 +8,7 @@ import GeoJSON from 'ol/format/GeoJSON';
 import { fromLonLat } from 'ol/proj';
 import { Layer, Tile as TileLayer, Vector, Vector as VectorLayer } from 'ol/layer';
 import VectorSource from 'ol/source/Vector';
+import ImageArcGISRest from 'ol/source/ImageArcGISRest';
 import Style from 'ol/style/Style';
 import Stroke from 'ol/style/Stroke';
 import { MapServiceService } from '../../services/map-service.service';
@@ -23,6 +24,8 @@ import { MediatorService } from 'src/app/core/services/mediator.service';
 import { LayerModel } from 'src/app/core/models/layerModel';
 import { CopernicusMarineServicesService } from 'src/app/core/services/drivers/copernicus-marine-services.service';
 import { GlobalsService } from 'src/app/core/services/globals.service';
+import { MapLayerModel } from 'src/app/core/models/mapLayerModel';
+import ImageLayer from 'ol/layer/Image';
 
 @Component({
   selector: 'app-dtemap',
@@ -56,7 +59,7 @@ export class DTEMapComponent implements OnInit {
   LAND_10KM_SEA_ALL = 2;
 
   /** Variable to control when the layers are fully loaded */
-  loadingLayers: boolean = true;
+  loadingLayers: boolean = false;
   isLoggedIn: boolean;
   loading: boolean = false;
 
@@ -65,12 +68,12 @@ export class DTEMapComponent implements OnInit {
   wfsLayers: any[] = [];
 
   /** List of layers from the api */
-  listOfLayersWMS: any[];
-  listOfLayersWFS: any[];
+  listOfLayersWMS: any[] = [];
+  listOfLayersWFS: any[] = [];
 
   listOfSelectedLayers: any[] = [];
 
-  layerMap: { [id: number]: { data: LayerModel, layer: Layer<any>, expanded: boolean, visible: boolean, opacity: number, params: [], paramsObject: {[key: string]: { values: string[], default: string, selected: string }} } } = {};
+  layerMap: { [id: number]: MapLayerModel } = {};
 
   limitLayer12NM: VectorLayer<any>;
   limitLayerAll: VectorLayer<any>;
@@ -97,7 +100,7 @@ export class DTEMapComponent implements OnInit {
 
   //Value of the selected limit form control
   selectedLimit: number = 1;
-  activeBoundaryLayer: VectorLayer<VectorSource<Polygon>>;
+  activeBoundaryLayer: VectorLayer<VectorSource<Polygon>> | null;
 
   //Values of the date range form controls
   dateFrom: string = "2018-01-01";
@@ -167,20 +170,7 @@ export class DTEMapComponent implements OnInit {
         let visibleLayers = this.layerMap;
         for (const [key, value] of Object.entries(visibleLayers)) {
           if (value.visible) {
-            let url = value.layer.getSource().getFeatureInfoUrl(
-              evt.coordinate,
-              mapResolution,
-              'EPSG:3857',
-              { 'INFO_FORMAT': 'text/xml' }
-            );
-            if (url) {
-
-              fetch(url)
-                .then((response) => response.text())
-                .then((data) => {
-                  console.log(data);
-                });
-            }
+            let featureData = this.mediator.getData(value, mapResolution, evt.coordinate);
           }
         }
       }
@@ -244,12 +234,14 @@ export class DTEMapComponent implements OnInit {
   }
 
   fetchLayerList() {
+    this.loadingLayers = true;
     this.mapService.getLayerHierarchy(this.dateFrom, this.dateTo)
       .then(response => response.json())
       .then(data => {
         this.layersHierarchy = data;
         this.listOfLayersWMS = this.hierarchyToList(this.layersHierarchy);
         this.initLayers();
+        this.loadingLayers = false;
       });
 
     //this.mapService.getLayersWMS()
@@ -271,41 +263,65 @@ export class DTEMapComponent implements OnInit {
     let aoiLayer = this.aoiVectorLayer;
 
     for (let i = 0; i < this.listOfLayersWMS.length; i++) {
+      let layerData = this.listOfLayersWMS[i];
+
       if(this.listOfLayersWMS[i].parameters == ""){
         this.listOfLayersWMS[i].parameters = [];
       } else {
         this.listOfLayersWMS[i].parameters = this.listOfLayersWMS[i].parameters.split(",");
       }
       
-      let layerData = this.listOfLayersWMS[i];
       let parameters = layerData.parameters;
       
       let frequency = layerData.frequency == null ? "" : layerData.frequency;
 
-      let layerParams: any = {
-        'TILED': true,
-        'LAYERS': layerData.layer_name,
-        'BBOX': this.aoi_BBOX.toString(),
-        'CRS': "EPSG:4326"
-      };
-      
-      let layer = new TileLayer({
-        source: new TileWMS({
-          url: layerData.service_url,
-          params: layerParams,
-          transition: 0,
-        }),
-        visible: false
-      });
+      let layerParams: any = null;
+      let layer: any = null;
+
+      if(layerData.type == "ARCGIS_IS" || layerData.type == "ARCGIS_MS"){
+        layerParams = {
+          'TILED': true,
+          'LAYERS': layerData.layer_name,
+          'BBOX': this.aoi_BBOX.toString(),
+          'CRS': "EPSG:4326"
+        };
+
+        layer = new ImageLayer({
+          source: new ImageArcGISRest({
+            ratio: 1,
+            params: layerParams,
+            url: layerData.service_url,
+          }),
+          visible: false
+        });
+
+      } else if(layerData.type == "WMS"){
+        layerParams = {
+          'TILED': true,
+          'LAYERS': layerData.layer_name,
+          'BBOX': this.aoi_BBOX.toString(),
+          'CRS': "EPSG:4326"
+        };
+
+        layer = new TileLayer({
+          source: new TileWMS({
+            url: layerData.service_url,
+            params: layerParams,
+            transition: 0,
+          }),
+          visible: false
+        });
+      }
 
       layer.setExtent(aoiLayer.getSource().getExtent());
       layer.on('postrender', (e: any) => {
         const vectorContext = getVectorContext(e);
         e.context.globalCompositeOperation = 'destination-in';
-
-        this.activeBoundaryLayer.getSource().forEachFeature((feature) => {
-          vectorContext.drawFeature(feature, style);
-        });
+        if(this.activeBoundaryLayer){
+          this.activeBoundaryLayer.getSource().forEachFeature((feature) => {
+            vectorContext.drawFeature(feature, style);
+          });
+        }
         aoiLayer.getSource().forEachFeature((feature) => {
           vectorContext.drawFeature(feature, style);
         });
@@ -373,11 +389,9 @@ export class DTEMapComponent implements OnInit {
   }
 
   async initLayers() {
-    this.loadingLayers = true;
-
     //await this.initWFSLayers();
     await this.initWMSLayers();
-    this.loadingLayers = false;
+    //await this.initArcGISLayers();
   }
 
   toggleDrawingAOI() {
@@ -418,8 +432,10 @@ export class DTEMapComponent implements OnInit {
     this.aoiState = this.SELECTED_AOI;
     if (this.selectedLimit == this.LAND_10KM_SEA_12NM) {
       this.activeBoundaryLayer = this.limitLayer12NM
-    } else {
+    } else if(this.selectedLimit == this.LAND_10KM_SEA_ALL) {
       this.activeBoundaryLayer = this.limitLayerAll;
+    } else {
+      this.activeBoundaryLayer = null;
     }
     this.aoiPolygonDraw.abortDrawing();
     this.map.removeInteraction(this.aoiPolygonDraw);
@@ -491,9 +507,12 @@ export class DTEMapComponent implements OnInit {
     if (this.selectedLimit == this.LAND_10KM_SEA_12NM) {
       this.limitLayer12NM.setVisible(true);
       this.limitLayerAll.setVisible(false);
-    } else {
+    } else if (this.selectedLimit == this.LAND_10KM_SEA_ALL) {
       this.limitLayer12NM.setVisible(false);
       this.limitLayerAll.setVisible(true);
+    } else {
+      this.limitLayer12NM.setVisible(false);
+      this.limitLayerAll.setVisible(false);
     }
   }
 
