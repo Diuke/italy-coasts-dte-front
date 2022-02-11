@@ -4,8 +4,8 @@
 
 export const environment = {
   production: false,
-  //base_path: "http://localhost:8000"
-  base_path: "https://dte-italycoasts-backend.herokuapp.com"
+  base_path: "http://localhost:8000"
+  //base_path: "https://dte-italycoasts-backend.herokuapp.com"
 };
 
 /*

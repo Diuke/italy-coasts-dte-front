@@ -40,6 +40,7 @@
                         (change)="changeSelectedLimit()">
                         <option value="1">12NM sea</option>
                         <option value="2">Official sea limits</option>
+                        <option value="3">Unbounded</option>
                     </select>
                 </div>
 
@@ -94,7 +95,10 @@
             <div class="tab-pane fade" id="nav-selection" role="tabpanel" aria-labelledby="nav-selection-tab">
                 <div class="mt-3">
                     <div class="text-center w-100">
-                        <span class="" *ngIf="!listOfLayersWMS">No Layers To Select</span>
+                        <span class="" *ngIf="listOfLayersWMS.length == 0 && loadingLayers">Loading Layers List...</span>
+                    </div>
+                    <div class="text-center w-100">
+                        <span class="" *ngIf="listOfLayersWMS.length == 0 && !loadingLayers">No Layers To Select</span>
                     </div>
 
                     <div *ngIf="layersHierarchy.length > 0" class="container">

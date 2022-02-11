@@ -1,4 +1,4 @@
-<div class="layer-group">
+<div class="layer-group"  *ngIf="numberOfChildren > 0">
     <span class="layer-group-title list-group-item selectable" (click)="toggleExpanded()">
         {{node.name}} ({{numberOfChildren}})
         <fa-icon *ngIf="!expanded" class="icon selectable" [icon]="_faGreaterThan"></fa-icon>
