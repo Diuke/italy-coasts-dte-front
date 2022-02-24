@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { UrlsService } from 'src/app/core/services/urls.service';
 import { environment } from 'src/environments/environment';
+import Map from 'ol/Map';
+import { MapLayerModel } from 'src/app/core/models/mapLayerModel';
 
 @Injectable({
   providedIn: 'root'
@@ -8,9 +10,24 @@ import { environment } from 'src/environments/environment';
 export class MapServiceService {
   BASE_URL = environment.base_path;
 
+  public globalMap: Map | null= null;
+  public layerMap: { [id: number]: MapLayerModel } = {};
+
   constructor(
     private urlsService: UrlsService
   ) { }
+
+  setMap(map: Map){
+    this.globalMap = map;
+  }
+
+  getMap(){
+    return this.globalMap;
+  }
+
+  getLayerMap(){
+    return this.layerMap;
+  }
 
   getLayersWMS(){
     let URL = this.urlsService.buildUrl("layers_wms");

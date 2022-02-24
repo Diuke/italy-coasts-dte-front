@@ -53,7 +53,7 @@ export class CopernicusMarineServicesService {
     return this.http.get(url);
   }
 
-  async requestData(layer_model: MapLayerModel,mapResolution: any, coordinates: any){
+  async requestData(layer_model: MapLayerModel, mapResolution: any, coordinates: any){
     let getFeatureInfoUrl = layer_model.layer.getSource().getFeatureInfoUrl(
       coordinates,
       mapResolution,
@@ -63,13 +63,14 @@ export class CopernicusMarineServicesService {
 
     let url = this.urlService.BASE_PATH + this.url_templates["getData"];
 
-    let resp = null;
+    let resp: any = null;
     let body = {
       layer_id: layer_model.data.id,
       request_url: getFeatureInfoUrl
     };
     if (url) {
-      let response = await this.http.post(url, body).subscribe(data => {
+      let request = this.http.post(url, body).toPromise();
+      await request.then(data => {
         resp = data;
       });
     }

@@ -6,3 +6,13 @@
 body{
     overflow-x: hidden !important;
 }
+
+/* OpenLayers custom styles */
+.ol-attribution{
+    left: 5px!important;
+    right: auto!important;
+}
+
+.ol-scale-line{
+    bottom: 45px!important;
+}

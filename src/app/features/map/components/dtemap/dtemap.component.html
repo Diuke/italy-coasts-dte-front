@@ -21,8 +21,8 @@
                 <button class="nav-link" id="nav-layers-tab" data-bs-toggle="tab" data-bs-target="#nav-layers"
                     type="button" role="tab" aria-controls="nav-layers" aria-selected="true">Layers</button>
 
-                <button class="nav-link" id="nav-results-tab" data-bs-toggle="tab" data-bs-target="#nav-results"
-                    type="button" role="tab" aria-controls="nav-results" aria-selected="false">Results</button>
+                <button class="nav-link" id="nav-analysis-tab" data-bs-toggle="tab" data-bs-target="#nav-analysis"
+                    type="button" role="tab" aria-controls="nav-analysis" aria-selected="false">Analysis</button>
                 <button class="nav-link" id="nav-scenarios-tab" data-bs-toggle="tab" data-bs-target="#nav-scenarios"
                     [disabled]="!isLoggedIn" type="button" role="tab" aria-controls="nav-scenarios"
                     aria-selected="false" *ngIf="isLoggedIn">Scenarios</button>
@@ -184,17 +184,22 @@
             </div>
             <!-- END Tab Layers -->
 
-            <!-- Tab Results -->
-            <div class="tab-pane fade" id="nav-results" role="tabpanel" aria-labelledby="nav-results-tab">
-                <button *ngIf="captureState == NOT_CAPTURING_POINT" class="btn btn-secondary w-100"
-                    (click)="capturePoint()">
-                    Capture Point
-                </button>
+            <!-- Tab analysis -->
+            <div class="tab-pane fade" id="nav-analysis" role="tabpanel" aria-labelledby="nav-analysis-tab">
+                <div class="container-fluid my-3">
+                    <app-analysis-unit 
+                        *ngFor="let unit of analysisUnits"
+                        class="mb-3"
+                        [layerMap]="layerMap"
+                    ></app-analysis-unit>
 
-                <button *ngIf="captureState == CAPTURING_POINT" class="btn btn-warning w-100"
-                    (click)="cancelCapturePoint()">
-                    Cancel Capture Point
-                </button>
+                    <button class="btn btn-secondary w-100"
+                        (click)="createAnalysisUnit()">
+                        Add
+                    </button>
+
+                </div>
+                
             </div>
             <!-- END Tab Analysis -->
 
@@ -205,10 +210,22 @@
 
     </div>
 
+    <!--
     <div class="mouse-position" id="mouse-position">
     </div>
+    -->
+    <div class="date-slider">
 
-    <div class="map-container" id="map">
+    </div>
+
+    <div class="basemap-picker" id="basemap-picker">
+        <select [(ngModel)]="basemapSelect" class="form-select" name="basemapSelect" id="basemapSelect" (change)="changeBasemap()">
+            <option [value]="OSM_BASEMAP">OpenStreetMap</option>
+            <option [value]="SATELLITE_BASEMAP">Satellite - Sentinel-2 Cloudless</option>
+        </select>
+    </div>
+
+    <div class="map-container" [class]="{'full-width': !sidebarOpen}" id="map">
 
     </div>
 

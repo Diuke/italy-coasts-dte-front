@@ -35,25 +35,25 @@ export class MediatorService {
     return null;
   }
 
-  getData(layer: MapLayerModel, mapResolution: any, coordinates: any){
+  async getData(layer: MapLayerModel, mapResolution: any, coordinates: any) {
     if(layer.data.source == "Copernicus Marine Services"){
       let layerData = this.copernicusMarineServicesDriver.requestData(layer, mapResolution, coordinates);
-      console.log(layerData);
       return layerData;
     }
 
-    if(layer.data.source == "Copernicus Land Monitoring Service"){
+    else if(layer.data.source == "Copernicus Land Monitoring Service"){
       let layerData = this.copernicusLandServicesDriver.requestData(layer, mapResolution, coordinates);
-      console.log(layerData);
       return layerData;
     }
 
-    if(layer.data.source == "WorldPop"){
+    else if(layer.data.source == "WorldPop"){
       let layerData = this.worldpopDriver.requestData(layer, mapResolution, coordinates);
-      console.log(layerData);
       return layerData;
     }
-    return null;
+
+    else {
+      return {value: null, units: null};
+    }
   }
 
 }
