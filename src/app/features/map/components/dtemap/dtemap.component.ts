@@ -2,6 +2,9 @@ import { Component, OnInit, ViewChild } from '@angular/core';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import OSM from 'ol/source/OSM';
+import XYZ from 'ol/source/XYZ';
+import WMTS, { optionsFromCapabilities } from  'ol/source/WMTS';
+import WMTSCapabilities from 'ol/format/WMTSCapabilities';
 import TileWMS from 'ol/source/TileWMS';
 import Draw from 'ol/interaction/Draw'
 import GeoJSON from 'ol/format/GeoJSON';
@@ -18,7 +21,6 @@ import Fill from 'ol/style/Fill';
 import { getVectorContext } from 'ol/render';
 import { AuthService } from '../../services/auth.service';
 import MousePosition from 'ol/control/MousePosition';
-import { createStringXY } from 'ol/coordinate';
 import { UtilsService } from 'src/app/core/services/utils.service';
 import { MediatorService } from 'src/app/core/services/mediator.service';
 import { LayerModel } from 'src/app/core/models/layerModel';
@@ -26,6 +28,8 @@ import { CopernicusMarineServicesService } from 'src/app/core/services/drivers/c
 import { GlobalsService } from 'src/app/core/services/globals.service';
 import { MapLayerModel } from 'src/app/core/models/mapLayerModel';
 import ImageLayer from 'ol/layer/Image';
+import ScaleLine from 'ol/control/ScaleLine';
+import { defaults as defaultControls } from 'ol/control';
 
 @Component({
   selector: 'app-dtemap',
@@ -45,6 +49,8 @@ export class DTEMapComponent implements OnInit {
   _faChevronDown = faChevronDown;
   _faInfoCircle = faInfoCircle;
 
+  scaleLineControl = new ScaleLine();
+
   NO_AOI = 0;
   DRAWING_AOI = 1;
   SELECTED_AOI = 2;
@@ -57,6 +63,9 @@ export class DTEMapComponent implements OnInit {
 
   LAND_10KM_SEA_12NM = 1;
   LAND_10KM_SEA_ALL = 2;
+
+  /**Variable for building the EOX Sentinel-2 cloudless base map from the WMTS Capabilities */
+  parser = new WMTSCapabilities();
 
   /** Variable to control when the layers are fully loaded */
   loadingLayers: boolean = false;
@@ -103,12 +112,26 @@ export class DTEMapComponent implements OnInit {
   activeBoundaryLayer: VectorLayer<VectorSource<Polygon>> | null;
 
   //Values of the date range form controls
-  dateFrom: string = "2018-01-01";
-  dateTo: string = "2021-11-01";
+  dateFrom: string = "2000-01-01"; //"2018-01-01";
+  dateTo: string = "2030-11-01";//"2021-11-01";
+
+  //ngModel of the select to pick the basemap.
+  OSM_BASEMAP = 1;
+  SATELLITE_BASEMAP = 2;
+  basemapSelect: number = this.OSM_BASEMAP; 
+
+  osmBasemap = new TileLayer({
+    source: new OSM(),
+    zIndex: 0
+  });
+
+  satelliteBasemap: TileLayer<WMTS>;
 
   layersHierarchy: any[] = [];
 
   captureState: number = this.NOT_CAPTURING_POINT;
+
+  analysisUnits: any[] = [];
 
   constructor(
     private mapService: MapServiceService,
@@ -129,9 +152,19 @@ export class DTEMapComponent implements OnInit {
     //this.initLayers();
   }
 
+  createAnalysisUnit(){
+    this.analysisUnits.push({});
+
+  }
+
+  deleteAnalysisUnit(index: number){
+    this.analysisUnits.splice(index, 1);
+  }
+  
   initMap() {
     this.aoiVectorLayer = new VectorLayer({
       source: this.aoiSource,
+      zIndex: 999,
       style: new Style({
         stroke: new Stroke({
           color: 'rgb(0.0, 0.0, 255)',
@@ -151,19 +184,39 @@ export class DTEMapComponent implements OnInit {
         projection: "EPSG:3857"
       }),
       layers: [
-        new TileLayer({
-          source: new OSM(),
-        }),
-        this.aoiVectorLayer
+        this.aoiVectorLayer,
+        this.osmBasemap,
       ],
-      target: 'map'
+      target: 'map',
+      controls: defaultControls({attribution: true, zoom: true}).extend([this.scaleLineControl]),
+    });
+    this.mapService.setMap(this.map);
+
+    //Satellite basemap WMTS layer
+    fetch("https://tiles.maps.eox.at/wmts/1.0.0/WMTSCapabilities.xml")
+    .then((response) => {
+      return response.text();
+    })
+    .then((text) => {
+      const result = this.parser.read(text);
+      let options = optionsFromCapabilities(result, {
+        layer: 's2cloudless-2020_3857_512',
+        matrixSet: 'EPSG:3857'
+      });
+      options.attributions =  "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2020)";
+      this.satelliteBasemap = new TileLayer({
+        opacity: 1,
+        source: new WMTS(options),
+        visible: false,
+        zIndex: 0
+      });
+      this.map.addLayer(this.satelliteBasemap);
     });
 
   }
 
   initLayerEvents() {
     this.map.on('singleclick', (evt) => {
-
       if (this.captureState == this.CAPTURING_POINT) {
         this.captureState = this.NOT_CAPTURING_POINT;
         let mapResolution = this.map.getView().getResolution();
@@ -180,14 +233,6 @@ export class DTEMapComponent implements OnInit {
       this.map.getViewport().style.cursor = this.captureState == this.CAPTURING_POINT ? 'crosshair' : 'default';
     });
 
-    const mousePositionControl = new MousePosition({
-      coordinateFormat: createStringXY(4),
-      projection: 'EPSG:4326',
-      className: 'mouse-position',
-      target: "mouse-position"
-    });
-
-    this.map.addControl(mousePositionControl);
   }
 
   initStaticLayers() {
@@ -207,7 +252,8 @@ export class DTEMapComponent implements OnInit {
       }),
       style: limitStyle,
       opacity: 1,
-      visible: true
+      visible: true,
+      zIndex: 999
     })
 
     this.limitLayerAll = new VectorLayer({
@@ -217,7 +263,8 @@ export class DTEMapComponent implements OnInit {
       }),
       style: limitStyle,
       opacity: 1,
-      visible: false
+      visible: false,
+      zIndex: 999
     });
 
 
@@ -230,7 +277,7 @@ export class DTEMapComponent implements OnInit {
     hierarchy.forEach(element => {
       layerList = layerList.concat(element.layers);
     });
-    return layerList
+    return layerList;
   }
 
   fetchLayerList() {
@@ -277,6 +324,8 @@ export class DTEMapComponent implements OnInit {
 
       let layerParams: any = null;
       let layer: any = null;
+      console.log(layerData.category.name);
+      let zIndex = layerData.category.name == "Landcover" ? 9990 : 9999;
 
       if(layerData.type == "ARCGIS_IS" || layerData.type == "ARCGIS_MS"){
         layerParams = {
@@ -292,8 +341,10 @@ export class DTEMapComponent implements OnInit {
             params: layerParams,
             url: layerData.service_url,
           }),
-          visible: false
+          visible: false,
+          zIndex: zIndex
         });
+
 
       } else if(layerData.type == "WMS"){
         layerParams = {
@@ -307,9 +358,9 @@ export class DTEMapComponent implements OnInit {
           source: new TileWMS({
             url: layerData.service_url,
             params: layerParams,
-            transition: 0,
           }),
-          visible: false
+          visible: false,
+          zIndex: zIndex
         });
       }
 
@@ -392,6 +443,7 @@ export class DTEMapComponent implements OnInit {
     //await this.initWFSLayers();
     await this.initWMSLayers();
     //await this.initArcGISLayers();
+    this.mapService.layerMap = this.layerMap;
   }
 
   toggleDrawingAOI() {
@@ -417,7 +469,6 @@ export class DTEMapComponent implements OnInit {
       type: "Polygon",
     });
     this.map.addInteraction(this.aoiPolygonDraw);
-    this.aoiVectorLayer.setZIndex(999);
     this.aoiVectorLayer.getSource().on('addfeature', (event) => {
       //Create any other functionality when the drawing is finished.
       this.finishPolygonAOI();
@@ -501,6 +552,7 @@ export class DTEMapComponent implements OnInit {
 
   toggleSidebar() {
     this.sidebarOpen = !this.sidebarOpen;
+    setTimeout( () => { this.map.updateSize();} , 10);
   }
 
   changeSelectedLimit() {
@@ -560,10 +612,13 @@ export class DTEMapComponent implements OnInit {
     this.layersHierarchy = [];
     this.dateFrom = "";
     this.dateTo = "";
-    this.selectedLimit = 1;
     this.aoiState = this.NO_AOI;
     this.aoi_BBOX = [];
     this.deactivateDrawingAOI();
+  }
+
+  setGlobalDate(){
+
   }
 
   initLayerParameters(layer: any){    
@@ -611,6 +666,16 @@ export class DTEMapComponent implements OnInit {
         loadedParams++;
         this.loading = loadedParams < paramsToLoad;
       }); 
+    }
+  }
+
+  changeBasemap(){
+    if(this.basemapSelect == this.OSM_BASEMAP){
+      this.osmBasemap.setVisible(true);
+      this.satelliteBasemap.setVisible(false);
+    } else {
+      this.osmBasemap.setVisible(false);
+      this.satelliteBasemap.setVisible(true);
     }
   }
 
