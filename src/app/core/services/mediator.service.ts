@@ -35,9 +35,9 @@ export class MediatorService {
     return null;
   }
 
-  async getData(layer: MapLayerModel, mapResolution: any, coordinates: any) {
+  async getData(layer: MapLayerModel, mapResolution: any, coordinates: any, params?: any) {
     if(layer.data.source == "Copernicus Marine Services"){
-      let layerData = this.copernicusMarineServicesDriver.requestData(layer, mapResolution, coordinates);
+      let layerData = this.copernicusMarineServicesDriver.requestData(layer, mapResolution, coordinates, params);
       return layerData;
     }
 
