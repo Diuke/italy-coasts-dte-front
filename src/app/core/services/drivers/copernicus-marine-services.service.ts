@@ -53,12 +53,19 @@ export class CopernicusMarineServicesService {
     return this.http.get(url);
   }
 
-  async requestData(layer_model: MapLayerModel, mapResolution: any, coordinates: any){
+  async requestData(layer_model: MapLayerModel, mapResolution: any, coordinates: any, params?: any){
+    let requestParams = {
+      'INFO_FORMAT': 'text/xml'
+    }
+    if(params){
+      requestParams = { ...requestParams, ...params };
+    }
+
     let getFeatureInfoUrl = layer_model.layer.getSource().getFeatureInfoUrl(
       coordinates,
       mapResolution,
       'EPSG:3857',
-      { 'INFO_FORMAT': 'text/xml' }
+      requestParams
     );
 
     let url = this.urlService.BASE_PATH + this.url_templates["getData"];

@@ -3,13 +3,19 @@
 </div>
 
 <div class="main-wrapper">
-    <div class="icon-container" (click)="toggleSidebar()"
-        [class]="{'icon-open': sidebarOpen, 'icon-closed': !sidebarOpen}">
-        <fa-icon *ngIf="sidebarOpen" class="icon" [icon]="_faGreaterThan"></fa-icon>
-        <fa-icon *ngIf="!sidebarOpen" class="icon" [icon]="_faLessThan"></fa-icon>
+    <div class="icon-left-container" (click)="toggleLeftSidebar()"
+        [class]="{'icon-left-open': sidebarLeftOpen, 'icon-left-closed': !sidebarLeftOpen}">
+        <fa-icon *ngIf="sidebarLeftOpen" class="icon" [icon]="_faLessThan"></fa-icon>
+        <fa-icon *ngIf="!sidebarLeftOpen" class="icon" [icon]="_faGreaterThan"></fa-icon>
     </div>
 
-    <div class="sidebar" [class]="{'sidebar-open': sidebarOpen, 'sidebar-closed': !sidebarOpen}">
+    <div class="icon-right-container" (click)="toggleRightSidebar()"
+        [class]="{'icon-right-open': sidebarRightOpen, 'icon-right-closed': !sidebarRightOpen}">
+        <fa-icon *ngIf="sidebarRightOpen" class="icon" [icon]="_faGreaterThan"></fa-icon>
+        <fa-icon *ngIf="!sidebarRightOpen" class="icon" [icon]="_faLessThan"></fa-icon>
+    </div>
+
+    <div class="sidebar-left" [class]="{'sidebar-left-open': sidebarLeftOpen, 'sidebar-left-closed': !sidebarLeftOpen}">
 
         <nav>
             <div class="nav nav-tabs" id="nav-tab" role="tablist">
@@ -17,15 +23,6 @@
                     type="button" role="tab" aria-controls="nav-context" aria-selected="true">Context</button>
                 <button class="nav-link" id="nav-selection-tab" data-bs-toggle="tab" data-bs-target="#nav-selection"
                     type="button" role="tab" aria-controls="nav-selection" aria-selected="true">Selection</button>
-
-                <button class="nav-link" id="nav-layers-tab" data-bs-toggle="tab" data-bs-target="#nav-layers"
-                    type="button" role="tab" aria-controls="nav-layers" aria-selected="true">Layers</button>
-
-                <button class="nav-link" id="nav-analysis-tab" data-bs-toggle="tab" data-bs-target="#nav-analysis"
-                    type="button" role="tab" aria-controls="nav-analysis" aria-selected="false">Analysis</button>
-                <button class="nav-link" id="nav-scenarios-tab" data-bs-toggle="tab" data-bs-target="#nav-scenarios"
-                    [disabled]="!isLoggedIn" type="button" role="tab" aria-controls="nav-scenarios"
-                    aria-selected="false" *ngIf="isLoggedIn">Scenarios</button>
             </div>
         </nav>
 
@@ -72,11 +69,13 @@
                         Remove AOI
                     </button>
 
+                    <!--
                     <span class="w-100">OR</span>
 
                     <button [disabled]="aoiState == SELECTED_AOI" class="btn btn-secondary w-100">
                         Load AOI from file
                     </button>
+                    -->
                 </div>
 
                 <div class="context-section text-center">
@@ -94,11 +93,14 @@
             <!-- Tab Layers Selection -->
             <div class="tab-pane fade" id="nav-selection" role="tabpanel" aria-labelledby="nav-selection-tab">
                 <div class="mt-3">
-                    <div class="text-center w-100">
-                        <span class="" *ngIf="listOfLayersWMS.length == 0 && loadingLayers">Loading Layers List...</span>
+                    <div class="text-center w-100" *ngIf="layersHierarchy.length == 0 && loadingLayers">
+                        <p class="">Loading Layers List...</p>
+                        <div class="spinner-border" role="status">
+                            <span class="sr-only">Loading...</span>
+                        </div>
                     </div>
-                    <div class="text-center w-100">
-                        <span class="" *ngIf="listOfLayersWMS.length == 0 && !loadingLayers">No Layers To Select</span>
+                    <div class="text-center w-100" *ngIf="layersHierarchy.length == 0 && !loadingLayers">
+                        <span class="" >No Layers To Select</span>
                     </div>
 
                     <div *ngIf="layersHierarchy.length > 0" class="container">
@@ -109,10 +111,28 @@
                     </div>
                 </div>
             </div>
-            <!-- END Tab Layers -->
+            <!-- END Tab Layers Selection -->
+        </div>
+    </div>
+
+    <div class="sidebar-right" [class]="{'sidebar-right-open': sidebarRightOpen, 'sidebar-right-closed': !sidebarRightOpen}">
+        <nav>
+            <div class="nav nav-tabs" id="nav-tab" role="tablist">
+                <button class="nav-link active" id="nav-layers-tab" data-bs-toggle="tab" data-bs-target="#nav-layers"
+                    type="button" role="tab" aria-controls="nav-layers" aria-selected="true">Layers</button>
+
+                <button class="nav-link" id="nav-analysis-tab" data-bs-toggle="tab" data-bs-target="#nav-analysis"
+                    type="button" role="tab" aria-controls="nav-analysis" aria-selected="false">Analysis</button>
+                <button class="nav-link" id="nav-scenarios-tab" data-bs-toggle="tab" data-bs-target="#nav-scenarios"
+                    [disabled]="!isLoggedIn" type="button" role="tab" aria-controls="nav-scenarios"
+                    aria-selected="false" *ngIf="isLoggedIn">Scenarios</button>
+            </div>
+        </nav>
+
+        <div class="tab-content" id="nav-tabContent">
 
             <!-- Tab Layers -->
-            <div class="tab-pane fade" id="nav-layers" role="tabpanel" aria-labelledby="nav-layers-tab">
+            <div class="tab-pane fade show active" id="nav-layers" role="tabpanel" aria-labelledby="nav-layers-tab">
                 <div class="mt-3">
                     <div class="text-center w-100">
                         <span class="" *ngIf="listOfSelectedLayers.length == 0">No Layers Selected</span>
@@ -155,13 +175,14 @@
 
                                     </div>
                                     <div [hidden]="!layer.expanded">
+                                        <hr>
                                         <div>
                                             <label class="form-label">Opacity</label>
                                             <input type="range" [(ngModel)]="layer.opacity" min="0" max="100"
                                                 class="form-range"
                                                 (change)="setLayerOpacity(layer.data.id, layer.opacity)">
                                         </div>
-
+                                        <hr>
                                         <div *ngFor="let param of layer.params">
                                             <label class="form-label">{{param}}</label>
                                             <select [(ngModel)]="layer.paramsObject[param].selected"
@@ -171,7 +192,7 @@
                                             </select>
                                         </div>
 
-                                        <div>
+                                        <div class="mt-4">
                                             <img [src]="layer.data.legend_url" alt="">
                                         </div>
                                     </div>
@@ -206,27 +227,31 @@
             <!-- Tab Scenarios -->
             <div class="tab-pane fade" id="nav-scenarios" role="tabpanel" aria-labelledby="nav-scenarios-tab">...</div>
             <!-- END Tab Scenarios -->
-        </div>
 
+        </div>
     </div>
 
     <!--
     <div class="mouse-position" id="mouse-position">
     </div>
     -->
-    <div class="date-slider">
-
-    </div>
-
-    <div class="basemap-picker" id="basemap-picker">
+    
+    <div class="basemap-picker" id="basemap-picker" [class]="{'left-margin': sidebarLeftOpen}">
         <select [(ngModel)]="basemapSelect" class="form-select" name="basemapSelect" id="basemapSelect" (change)="changeBasemap()">
             <option [value]="OSM_BASEMAP">OpenStreetMap</option>
             <option [value]="SATELLITE_BASEMAP">Satellite - Sentinel-2 Cloudless</option>
         </select>
     </div>
 
-    <div class="map-container" [class]="{'full-width': !sidebarOpen}" id="map">
-
+    <div class="map-container" [class]="{'left-margin': sidebarLeftOpen, 'right-margin': sidebarRightOpen}" id="map">
+        <!--
+        <div class="date-slider"
+            [class]="{'slider-left': sidebarLeftOpen, 'slider-right': sidebarRightOpen, 'slider-both': sidebarLeftOpen && sidebarRightOpen}"
+        >
+            <input type="range" class="form-range" min="01-01-2020" max="01-01-2021" id="date-slider" [(ngModel)]="globalDateSlider">
+            <span>{{globalDateSlider}}</span>
+        </div>
+        -->
     </div>
 
 </div>

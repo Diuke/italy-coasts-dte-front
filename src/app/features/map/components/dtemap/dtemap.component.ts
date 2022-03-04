@@ -9,7 +9,7 @@ import TileWMS from 'ol/source/TileWMS';
 import Draw from 'ol/interaction/Draw'
 import GeoJSON from 'ol/format/GeoJSON';
 import { fromLonLat } from 'ol/proj';
-import { Layer, Tile as TileLayer, Vector, Vector as VectorLayer } from 'ol/layer';
+import { Tile as TileLayer, Vector as VectorLayer } from 'ol/layer';
 import VectorSource from 'ol/source/Vector';
 import ImageArcGISRest from 'ol/source/ImageArcGISRest';
 import Style from 'ol/style/Style';
@@ -20,7 +20,6 @@ import Polygon from 'ol/geom/Polygon';
 import Fill from 'ol/style/Fill';
 import { getVectorContext } from 'ol/render';
 import { AuthService } from '../../services/auth.service';
-import MousePosition from 'ol/control/MousePosition';
 import { UtilsService } from 'src/app/core/services/utils.service';
 import { MediatorService } from 'src/app/core/services/mediator.service';
 import { LayerModel } from 'src/app/core/models/layerModel';
@@ -87,10 +86,11 @@ export class DTEMapComponent implements OnInit {
   limitLayer12NM: VectorLayer<any>;
   limitLayerAll: VectorLayer<any>;
 
-  sidebarOpen: boolean = true;
+  sidebarLeftOpen: boolean = true;
+  sidebarRightOpen: boolean = false;
 
   public map: Map;
-  mapCenter = fromLonLat([12.489947, 41.902540]); //Centered in Rome
+  mapCenter = fromLonLat([15.589947, 41.902540]); //Centered in Rome
   mapInitialZoom = 6.5;
 
   //Area of interest variables
@@ -108,12 +108,12 @@ export class DTEMapComponent implements OnInit {
   aoi_BBOX: any[] = [];
 
   //Value of the selected limit form control
-  selectedLimit: number = 1;
+  selectedLimit: number = this.LAND_10KM_SEA_ALL;
   activeBoundaryLayer: VectorLayer<VectorSource<Polygon>> | null;
 
   //Values of the date range form controls
-  dateFrom: string = "2000-01-01"; //"2018-01-01";
-  dateTo: string = "2030-11-01";//"2021-11-01";
+  dateFrom: string = "2020-01-01"; //"2018-01-01";
+  dateTo: string = "2020-04-01";//"2021-11-01";
 
   //ngModel of the select to pick the basemap.
   OSM_BASEMAP = 1;
@@ -139,8 +139,6 @@ export class DTEMapComponent implements OnInit {
     private mediator: MediatorService,
     public globals: GlobalsService,
     private utils: UtilsService,
-
-    private driver: CopernicusMarineServicesService
   ) { }
 
   ngOnInit(): void {
@@ -154,7 +152,6 @@ export class DTEMapComponent implements OnInit {
 
   createAnalysisUnit(){
     this.analysisUnits.push({});
-
   }
 
   deleteAnalysisUnit(index: number){
@@ -164,7 +161,7 @@ export class DTEMapComponent implements OnInit {
   initMap() {
     this.aoiVectorLayer = new VectorLayer({
       source: this.aoiSource,
-      zIndex: 999,
+      zIndex: 20,
       style: new Style({
         stroke: new Stroke({
           color: 'rgb(0.0, 0.0, 255)',
@@ -192,6 +189,9 @@ export class DTEMapComponent implements OnInit {
     });
     this.mapService.setMap(this.map);
 
+    //To adjust the margin that is set by the left sidebar
+    this.resizeMap();
+
     //Satellite basemap WMTS layer
     fetch("https://tiles.maps.eox.at/wmts/1.0.0/WMTSCapabilities.xml")
     .then((response) => {
@@ -216,23 +216,9 @@ export class DTEMapComponent implements OnInit {
   }
 
   initLayerEvents() {
-    this.map.on('singleclick', (evt) => {
-      if (this.captureState == this.CAPTURING_POINT) {
-        this.captureState = this.NOT_CAPTURING_POINT;
-        let mapResolution = this.map.getView().getResolution();
-        let visibleLayers = this.layerMap;
-        for (const [key, value] of Object.entries(visibleLayers)) {
-          if (value.visible) {
-            let featureData = this.mediator.getData(value, mapResolution, evt.coordinate);
-          }
-        }
-      }
-    });
-
     this.map.on('pointermove', (evt) => {
       this.map.getViewport().style.cursor = this.captureState == this.CAPTURING_POINT ? 'crosshair' : 'default';
     });
-
   }
 
   initStaticLayers() {
@@ -252,8 +238,8 @@ export class DTEMapComponent implements OnInit {
       }),
       style: limitStyle,
       opacity: 1,
-      visible: true,
-      zIndex: 999
+      visible: false,
+      zIndex: 10
     })
 
     this.limitLayerAll = new VectorLayer({
@@ -263,8 +249,8 @@ export class DTEMapComponent implements OnInit {
       }),
       style: limitStyle,
       opacity: 1,
-      visible: false,
-      zIndex: 999
+      visible: true,
+      zIndex: 10
     });
 
 
@@ -290,14 +276,9 @@ export class DTEMapComponent implements OnInit {
         this.initLayers();
         this.loadingLayers = false;
       });
+  }
 
-    //this.mapService.getLayersWMS()
-    //  .then(response => response.json())
-    //  .then(data => {
-    //    let apiLayersWMS = new LayerConfig(data);
-    //    this.listOfLayersWMS = apiLayersWMS;
-    //  });
-
+  importShapefile(){
 
   }
 
@@ -319,13 +300,13 @@ export class DTEMapComponent implements OnInit {
       }
       
       let parameters = layerData.parameters;
-      
-      let frequency = layerData.frequency == null ? "" : layerData.frequency;
 
       let layerParams: any = null;
       let layer: any = null;
       console.log(layerData.category.name);
-      let zIndex = layerData.category.name == "Landcover" ? 9990 : 9999;
+
+      //Non-landcover layers are on top
+      let zIndex = layerData.category.name == "Landcover" ? 100 : 101;
 
       if(layerData.type == "ARCGIS_IS" || layerData.type == "ARCGIS_MS"){
         layerParams = {
@@ -420,7 +401,6 @@ export class DTEMapComponent implements OnInit {
       .then(data => {
         const features = new GeoJSON().readFeatures(data);
         vectorSource.addFeatures(features);
-        this.map.getView().fit(vectorSource.getExtent());
 
         const vector = new VectorLayer({
           source: vectorSource,
@@ -507,7 +487,7 @@ export class DTEMapComponent implements OnInit {
     this.wmsLayers.forEach((element) => {
       this.map.removeLayer(element);
     });
-    this.loadingLayers = true;
+    //this.loadingLayers = true;
 
   }
 
@@ -542,17 +522,38 @@ export class DTEMapComponent implements OnInit {
 
   }
 
-  openSidebar() {
-    this.sidebarOpen = true;
-  }
-
-  closeSidebar() {
-    this.sidebarOpen = false;
-  }
-
-  toggleSidebar() {
-    this.sidebarOpen = !this.sidebarOpen;
+  resizeMap(){  
     setTimeout( () => { this.map.updateSize();} , 10);
+  }
+
+  openLeftSidebar() {
+    this.sidebarLeftOpen = true;
+    this.resizeMap();
+  }
+
+  closeLeftSidebar() {
+    this.sidebarLeftOpen = false;
+    this.resizeMap();
+  }
+
+  toggleLeftSidebar() {
+    this.sidebarLeftOpen = !this.sidebarLeftOpen;
+    this.resizeMap();
+  }
+
+  openRightSidebar() {
+    this.sidebarRightOpen = true;
+    this.resizeMap();
+  }
+
+  closeRightSidebar() {
+    this.sidebarRightOpen = false;
+    this.resizeMap();
+  }
+
+  toggleRightSidebar() {
+    this.sidebarRightOpen = !this.sidebarRightOpen;
+    this.resizeMap();
   }
 
   changeSelectedLimit() {
@@ -586,13 +587,28 @@ export class DTEMapComponent implements OnInit {
       this.contextState = this.CONTEXT_SET;
       this.fetchLayerList();
       this.aoi_BBOX = this.aoiSource.getExtent();
+      this.zoomToAOI();  
+
+      document.getElementById("nav-selection-tab")?.classList.add('active');
+      document.getElementById("nav-context-tab")?.classList.remove('active');
+      document.getElementById("nav-context")?.classList.remove('show', 'active');
+      document.getElementById("nav-selection")?.classList.add('show', 'active');     
+      this.openRightSidebar();
 
       let startDateSplit = this.dateFrom.split("-");
       let endDateSplit = this.dateTo.split("-");
       this.globals.contextStartDate = new Date(parseInt(startDateSplit[0]), parseInt(startDateSplit[1])-1, parseInt(startDateSplit[2]));
       this.globals.contextEndDate = new Date(parseInt(endDateSplit[0]), parseInt(endDateSplit[1])-1, parseInt(endDateSplit[2])); 
-      
     }
+  }
+
+  zoomToAOI(){
+    let feature = this.aoiSource.getFeatures()[0];
+    let polygon = feature.getGeometry();
+    this.map.getView().fit(polygon, {
+      duration: 1000,
+      padding: [10, 300, 10, 300]
+    });
   }
 
   capturePoint() {
@@ -614,6 +630,7 @@ export class DTEMapComponent implements OnInit {
     this.dateTo = "";
     this.aoiState = this.NO_AOI;
     this.aoi_BBOX = [];
+    this.loadingLayers = false;
     this.deactivateDrawingAOI();
   }
 

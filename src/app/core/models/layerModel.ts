@@ -10,6 +10,7 @@ export class LayerModel {
         name: string
     }
     frequency: string
+    units: string
     initial_time_range: string
     final_time_range: string
     parameters: string

@@ -2,3 +2,23 @@
     background-color: white;
     border-radius: 5px;
 }
+
+.layer-pill{
+    border: 1px solid #ccc;
+    background-color: #eee;
+    border-radius: 5px;
+}
+
+.depth-profile-graph{
+    height: 500px;
+    width: 100%;
+}
+
+.time-series-profile-graph{
+    height: 500px;
+    width: 100%;
+}
+
+.selectable{
+    cursor: pointer;
+}
