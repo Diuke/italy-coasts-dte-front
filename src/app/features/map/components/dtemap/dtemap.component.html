@@ -2,6 +2,15 @@
     <div class="loader"></div>
 </div>
 
+<div class="loading-fullscreen-scenario" *ngIf="loadingScenario">
+    <div class="loader loader-scenario"></div>
+    <div class="">
+        <h3>Loading Scenario</h3>
+        <h3>This may take a while</h3>
+    </div>
+    
+</div>
+
 <div class="main-wrapper">
     <div class="icon-left-container" (click)="toggleLeftSidebar()"
         [class]="{'icon-left-open': sidebarLeftOpen, 'icon-left-closed': !sidebarLeftOpen}">
@@ -87,6 +96,15 @@
                         Reset Context
                     </button>
                 </div>
+
+                <div class="context-bottom text-center">
+                    <input hidden #file type="file" accept="application/JSON" (change)="uploadAplicationStateFile(file.files)">
+                    <button #upload
+                        (click)="file.click()"
+                        class="btn btn-scenario w-100">
+                        Load Scenario
+                    </button>
+                </div>
             </div>
             <!-- END Tab Context -->
 
@@ -104,9 +122,17 @@
                     </div>
 
                     <div *ngIf="layersHierarchy.length > 0" class="container">
-                        <div *ngFor="let node of layersHierarchy">
-                            <app-tree-view [node]="node" (layerManipulation)="handleLayerManipulation($event)">
-                            </app-tree-view>
+                        <div class="form-group mb-2">
+                            <input type="text" [(ngModel)]="layerFilter" class="form-control" aria-describedby="Analysis Name" placeholder="Search..." (input)="filterLayers()">
+                        </div>
+                        <div class="spinner-border text-center" role="status" *ngIf="loadingFilter">
+                            <span class="sr-only">Loading...</span>
+                        </div>
+                        <div *ngIf="!loadingFilter">
+                            <div *ngFor="let node of displayLayersHierarchy">
+                                <app-tree-view [node]="node" (layerManipulation)="handleLayerManipulation($event)">
+                                </app-tree-view>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -124,8 +150,8 @@
                 <button class="nav-link" id="nav-analysis-tab" data-bs-toggle="tab" data-bs-target="#nav-analysis"
                     type="button" role="tab" aria-controls="nav-analysis" aria-selected="false">Analysis</button>
                 <button class="nav-link" id="nav-scenarios-tab" data-bs-toggle="tab" data-bs-target="#nav-scenarios"
-                    [disabled]="!isLoggedIn" type="button" role="tab" aria-controls="nav-scenarios"
-                    aria-selected="false" *ngIf="isLoggedIn">Scenarios</button>
+                    type="button" role="tab" aria-controls="nav-scenarios"
+                    aria-selected="false">Scenarios</button>
             </div>
         </nav>
 
@@ -208,10 +234,13 @@
             <!-- Tab analysis -->
             <div class="tab-pane fade" id="nav-analysis" role="tabpanel" aria-labelledby="nav-analysis-tab">
                 <div class="container-fluid my-3">
-                    <app-analysis-unit 
-                        *ngFor="let unit of analysisUnits"
+                    <app-analysis-unit #analysisUnitComponent
+                        *ngFor="let unit of analysisUnits; index as i"
                         class="mb-3"
                         [layerMap]="layerMap"
+                        [unitIndex]="i"
+                        (deleteAnalysis)="removeAnalysisHandler($event)"
+                        [initializationData]="unit"
                     ></app-analysis-unit>
 
                     <button class="btn btn-secondary w-100"
@@ -225,7 +254,56 @@
             <!-- END Tab Analysis -->
 
             <!-- Tab Scenarios -->
-            <div class="tab-pane fade" id="nav-scenarios" role="tabpanel" aria-labelledby="nav-scenarios-tab">...</div>
+            <div class="tab-pane fade" id="nav-scenarios" role="tabpanel" aria-labelledby="nav-scenarios-tab">
+                <div *ngIf="isLoggedIn"></div>
+                <div class="container-fluid my-3">
+                    <button class="btn btn-scenario w-100"
+                        (click)="downloadScenario()">
+                        Download Scenario
+                    </button>
+
+                </div>
+
+                <div class="container-fluid my-3">
+                    <button class="btn btn-scenario w-100" *ngIf="isLoggedIn"
+                        (click)="saveScenario()">
+                        Save Scenario
+                    </button>
+                </div>
+
+                <hr>
+                <div *ngIf="userScenarios.length > 0" class="container">
+                    <h4 class="mt-5 mb-3 text-center">User Scenarios</h4>
+
+                    <ul class="list-group">
+                        <li class="list-group-item mb-3" *ngFor="let scenario of userScenarios">
+                            <div class="container-fluid">
+                                <div class="row">
+                                    <div class="col-11">
+                                        <label class="form-check-label selected-layer-text"
+                                            [for]="'scenario' + scenario.id" data-bs-toggle="tooltip"
+                                            data-bs-placement="top" title="Tooltip on top">
+                                            <span>{{scenario.name}}</span>
+                                        </label>
+                                    </div>
+                                    <div class="col-1">
+                                        <fa-icon (click)="deleteScenario(scenario)" class="selectable" [icon]="_faTrash"></fa-icon>
+                                    </div>
+
+                                </div>
+                                <div class="row mt-3">
+                                    <button class="btn btn-scenario w-100"
+                                        (click)="applyScenario(scenario)">
+                                        Apply
+                                    </button>
+                                </div>
+
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                
+            </div>
             <!-- END Tab Scenarios -->
 
         </div>
@@ -252,6 +330,18 @@
             <span>{{globalDateSlider}}</span>
         </div>
         -->
+    </div>
+
+    <div id="dataPreviewPopup" class="ol-popup">
+        <a style="cursor: pointer;" id="popup-closer" class="ol-popup-closer" (click)="closePopup()"></a>
+        <div class="spinner-border" role="status" *ngIf="loadingClickPopupValues">
+            <span class="sr-only">Loading...</span>
+        </div>
+        <div id="dataPreviewPopupContent" *ngFor="let value of dataPreviewPopupContent">
+            <span>{{value?.layer}}</span>
+            <span>{{value?.value}}</span>
+            <hr>
+        </div>
     </div>
 
 </div>

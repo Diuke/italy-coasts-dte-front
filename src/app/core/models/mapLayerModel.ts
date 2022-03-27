@@ -7,6 +7,6 @@ export class MapLayerModel {
     expanded: boolean;
     visible: boolean; 
     opacity: number; 
-    params: [];
+    params: Array<any>;
     paramsObject: { [key: string]: { values: string[], default: string, selected: string } }
 }

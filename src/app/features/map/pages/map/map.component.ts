@@ -48,7 +48,7 @@ export class MapComponent implements OnInit {
 
   logout(){
     this.auth.logout();
-    window.location.reload();
+    //window.location.reload();
     this.loggedIn = this.auth.isLoggedIn();
   }
 

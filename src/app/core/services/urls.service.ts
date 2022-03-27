@@ -17,6 +17,9 @@ export class UrlsService {
     "layers_wfs": "/api/dte/layers/wfs",
     "all_layers": "/api/dte/layers/all",
     "layer_hierarchy": "/api/dte/categories_hierarchy",
+    "list_scenarios": "/api/dte/scenarios/list",
+    "create_scenario": "/api/dte/scenarios/create",
+    "delete_scenario": "/api/dte/scenarios/delete",
   }
 
   buildUrl(identifyer: string){

@@ -14,11 +14,17 @@
     width: 100%;
 }
 
-.time-series-profile-graph{
+.timeseries-profile-graph{
     height: 500px;
     width: 100%;
 }
 
 .selectable{
     cursor: pointer;
+}
+
+.loading-analysis{
+    margin: 20px auto;
+    font-size: 30px;
+    text-align: center;
 }
