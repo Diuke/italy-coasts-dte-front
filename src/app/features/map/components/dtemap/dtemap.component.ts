@@ -1,8 +1,7 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, QueryList, ViewChildren } from '@angular/core';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import OSM from 'ol/source/OSM';
-import XYZ from 'ol/source/XYZ';
 import WMTS, { optionsFromCapabilities } from  'ol/source/WMTS';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities';
 import TileWMS from 'ol/source/TileWMS';
@@ -15,20 +14,23 @@ import ImageArcGISRest from 'ol/source/ImageArcGISRest';
 import Style from 'ol/style/Style';
 import Stroke from 'ol/style/Stroke';
 import { MapServiceService } from '../../services/map-service.service';
-import { faBars, faDrawPolygon, faGreaterThan, faLessThan, faEye, faEyeSlash, faChevronDown, faChevronUp, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faDrawPolygon, faGreaterThan, faLessThan, faEye, faEyeSlash, faChevronDown, faChevronUp, faInfoCircle, faTrash } from '@fortawesome/free-solid-svg-icons';
 import Polygon from 'ol/geom/Polygon';
 import Fill from 'ol/style/Fill';
 import { getVectorContext } from 'ol/render';
 import { AuthService } from '../../services/auth.service';
 import { UtilsService } from 'src/app/core/services/utils.service';
 import { MediatorService } from 'src/app/core/services/mediator.service';
-import { LayerModel } from 'src/app/core/models/layerModel';
-import { CopernicusMarineServicesService } from 'src/app/core/services/drivers/copernicus-marine-services.service';
 import { GlobalsService } from 'src/app/core/services/globals.service';
 import { MapLayerModel } from 'src/app/core/models/mapLayerModel';
 import ImageLayer from 'ol/layer/Image';
 import ScaleLine from 'ol/control/ScaleLine';
 import { defaults as defaultControls } from 'ol/control';
+import { Coordinate } from 'ol/coordinate';
+import { Overlay } from 'ol';
+import { AnalysisUnitComponent } from '../analysis-unit/analysis-unit.component';
+import { ApplicationState, ScenarioModel } from 'src/app/core/models/applicationState';
+import { SharingService } from 'src/app/core/services/sharing.service';
 
 @Component({
   selector: 'app-dtemap',
@@ -47,6 +49,7 @@ export class DTEMapComponent implements OnInit {
   _faChevronUp = faChevronUp;
   _faChevronDown = faChevronDown;
   _faInfoCircle = faInfoCircle;
+  _faTrash = faTrash;
 
   scaleLineControl = new ScaleLine();
 
@@ -62,6 +65,11 @@ export class DTEMapComponent implements OnInit {
 
   LAND_10KM_SEA_12NM = 1;
   LAND_10KM_SEA_ALL = 2;
+
+  OSM_BASEMAP = 1;
+  SATELLITE_BASEMAP = 2;
+
+  loadingScenario: boolean = false;
 
   /**Variable for building the EOX Sentinel-2 cloudless base map from the WMTS Capabilities */
   parser = new WMTSCapabilities();
@@ -79,7 +87,7 @@ export class DTEMapComponent implements OnInit {
   listOfLayersWMS: any[] = [];
   listOfLayersWFS: any[] = [];
 
-  listOfSelectedLayers: any[] = [];
+  listOfSelectedLayers: MapLayerModel[] = [];
 
   layerMap: { [id: number]: MapLayerModel } = {};
 
@@ -112,12 +120,10 @@ export class DTEMapComponent implements OnInit {
   activeBoundaryLayer: VectorLayer<VectorSource<Polygon>> | null;
 
   //Values of the date range form controls
-  dateFrom: string = "2020-01-01"; //"2018-01-01";
-  dateTo: string = "2020-04-01";//"2021-11-01";
+  dateFrom: string = "2020-04-01"; //"2018-01-01";
+  dateTo: string = "2020-10-01";//"2021-11-01";
 
   //ngModel of the select to pick the basemap.
-  OSM_BASEMAP = 1;
-  SATELLITE_BASEMAP = 2;
   basemapSelect: number = this.OSM_BASEMAP; 
 
   osmBasemap = new TileLayer({
@@ -128,10 +134,24 @@ export class DTEMapComponent implements OnInit {
   satelliteBasemap: TileLayer<WMTS>;
 
   layersHierarchy: any[] = [];
+  displayLayersHierarchy: any[] = [];
 
   captureState: number = this.NOT_CAPTURING_POINT;
 
+  @ViewChildren(AnalysisUnitComponent) analysisUnitComponent: QueryList<AnalysisUnitComponent>;
   analysisUnits: any[] = [];
+
+  layerFilter: string = "";
+  loadingFilter: boolean = false;
+
+  userScenarios: ScenarioModel[] = [];
+
+  //Popup variables
+  dataPreviewPopup: HTMLElement;
+  dataPreviewPopupContent: Array<any>;
+  dataPreviewPopupCloser: HTMLElement;
+  dataPreviewOverlay: Overlay;
+  loadingClickPopupValues: boolean = false;
 
   constructor(
     private mapService: MapServiceService,
@@ -139,19 +159,28 @@ export class DTEMapComponent implements OnInit {
     private mediator: MediatorService,
     public globals: GlobalsService,
     private utils: UtilsService,
+    private sharingService: SharingService
   ) { }
 
   ngOnInit(): void {
     this.isLoggedIn = this.authService.isLoggedIn();
     this.initMap();
-    this.initStaticLayers()
+    this.initStaticLayers();
     //this.fetchLayerList();
     this.initLayerEvents();
     //this.initLayers();
+    if(this.isLoggedIn){
+      this.loadScenariosList();
+    }
   }
 
   createAnalysisUnit(){
-    this.analysisUnits.push({});
+    //Create an empty analysis
+    this.analysisUnits.push(null);
+  }
+
+  removeAnalysisHandler(unitIndex: number){
+    this.deleteAnalysisUnit(unitIndex)
   }
 
   deleteAnalysisUnit(index: number){
@@ -159,6 +188,18 @@ export class DTEMapComponent implements OnInit {
   }
   
   initMap() {
+    this.dataPreviewPopup = document.getElementById("dataPreviewPopup")!;
+    this.dataPreviewPopupContent = [];
+    this.dataPreviewPopupCloser = document.getElementById("popup-closer")!;
+    this.dataPreviewOverlay = new Overlay({
+      element: this.dataPreviewPopup ? this.dataPreviewPopup : undefined, //works like this for some reason...
+      autoPan: {
+        animation: {
+          duration: 250,
+        },
+      },
+    });
+
     this.aoiVectorLayer = new VectorLayer({
       source: this.aoiSource,
       zIndex: 20,
@@ -183,6 +224,9 @@ export class DTEMapComponent implements OnInit {
       layers: [
         this.aoiVectorLayer,
         this.osmBasemap,
+      ],
+      overlays: [
+        this.dataPreviewOverlay
       ],
       target: 'map',
       controls: defaultControls({attribution: true, zoom: true}).extend([this.scaleLineControl]),
@@ -218,6 +262,35 @@ export class DTEMapComponent implements OnInit {
   initLayerEvents() {
     this.map.on('pointermove', (evt) => {
       this.map.getViewport().style.cursor = this.captureState == this.CAPTURING_POINT ? 'crosshair' : 'default';
+    });
+
+    this.map.on('singleclick', (evt) => { 
+      if (!this.mapService.capturingAnalysisPoint && this.contextState ==  this.CONTEXT_SET) {
+
+        //Check if the clicked point is inside AOI
+        if(this.aoiSource.getFeatures()[0].getGeometry().intersectsCoordinate(evt.coordinate)){
+          this.loadingClickPopupValues = true;
+          this.dataPreviewPopupContent = [];
+          this.openPopup(evt.coordinate);
+          if(this.listOfSelectedLayers.length === 0){
+            this.dataPreviewPopupContent = [{layer: "", value:"No active layers"}];
+          } else {
+            let params: any = {};
+            for(let layer of this.listOfSelectedLayers){
+              for(let i in layer.params){
+                params[layer.params[i]] = layer.paramsObject[layer.params[i]].selected;
+              }
+              this.mediator.getData(layer, this.map.getView().getResolution(), evt.coordinate, params).then(data => {
+                this.dataPreviewPopupContent.push(
+                  {layer: layer.data.readable_name + ": ", value: data.value + " " + data.units}
+                );
+              });
+              
+            }
+            this.loadingClickPopupValues = false;
+          }
+        }
+      }
     });
   }
 
@@ -266,16 +339,28 @@ export class DTEMapComponent implements OnInit {
     return layerList;
   }
 
-  fetchLayerList() {
+  async fetchLayerList() {
     this.loadingLayers = true;
-    this.mapService.getLayerHierarchy(this.dateFrom, this.dateTo)
-      .then(response => response.json())
-      .then(data => {
+    let promise = this.mapService.getLayerHierarchy(this.dateFrom, this.dateTo).toPromise();
+    if(this.loadingScenario){
+      await promise.then((data: any) => {
         this.layersHierarchy = data;
+        this.displayLayersHierarchy = data;
         this.listOfLayersWMS = this.hierarchyToList(this.layersHierarchy);
         this.initLayers();
         this.loadingLayers = false;
       });
+    } else {
+      promise.then((data: any) => {
+        this.layersHierarchy = data;
+        this.displayLayersHierarchy = data;
+        this.listOfLayersWMS = this.hierarchyToList(this.layersHierarchy);
+        this.initLayers();
+        this.loadingLayers = false;
+      });
+    }
+    console.log("loaded layers");
+    
   }
 
   importShapefile(){
@@ -303,7 +388,6 @@ export class DTEMapComponent implements OnInit {
 
       let layerParams: any = null;
       let layer: any = null;
-      console.log(layerData.category.name);
 
       //Non-landcover layers are on top
       let zIndex = layerData.category.name == "Landcover" ? 100 : 101;
@@ -361,7 +445,6 @@ export class DTEMapComponent implements OnInit {
       });
 
       this.wmsLayers.push(layer);
-
       this.layerMap[layerData.id] = {
         data: layerData,
         layer: layer,
@@ -371,8 +454,8 @@ export class DTEMapComponent implements OnInit {
         params: parameters,
         paramsObject: {}
       }
-
       this.map.addLayer(layer);
+      
     }
   }
 
@@ -478,17 +561,18 @@ export class DTEMapComponent implements OnInit {
    * TODO: add confirmation for reseting AOI.
    */
   deactivateDrawingAOI() {
-    this.aoiPolygonDraw.abortDrawing();
-    this.aoiVectorLayer.getSource().clear();
-    this.map.removeInteraction(this.aoiPolygonDraw);
-    this.wfsLayers.forEach((element) => {
-      this.map.removeLayer(element);
-    });
-    this.wmsLayers.forEach((element) => {
-      this.map.removeLayer(element);
-    });
-    //this.loadingLayers = true;
-
+    if(this.aoiPolygonDraw){
+      this.aoiPolygonDraw.abortDrawing();
+      this.aoiVectorLayer.getSource().clear();
+      this.map.removeInteraction(this.aoiPolygonDraw);
+      this.wfsLayers.forEach((element) => {
+        this.map.removeLayer(element);
+      });
+      this.wmsLayers.forEach((element) => {
+        this.map.removeLayer(element);
+      });
+      //this.loadingLayers = true;
+    }
   }
 
   toggleLayerVisibility(layerId: number) {
@@ -581,12 +665,13 @@ export class DTEMapComponent implements OnInit {
     return true;
   }
 
-  setContext() {
+  async setContext() {
     let valid = this.validateContext();
     if (valid) {
       this.contextState = this.CONTEXT_SET;
-      this.fetchLayerList();
       this.aoi_BBOX = this.aoiSource.getExtent();
+      this.globals.bbox = this.aoi_BBOX;
+      this.globals.areaOfInterest = this.aoiSource;
       this.zoomToAOI();  
 
       document.getElementById("nav-selection-tab")?.classList.add('active');
@@ -599,6 +684,12 @@ export class DTEMapComponent implements OnInit {
       let endDateSplit = this.dateTo.split("-");
       this.globals.contextStartDate = new Date(parseInt(startDateSplit[0]), parseInt(startDateSplit[1])-1, parseInt(startDateSplit[2]));
       this.globals.contextEndDate = new Date(parseInt(endDateSplit[0]), parseInt(endDateSplit[1])-1, parseInt(endDateSplit[2])); 
+
+      if(this.loadingScenario){
+        await this.fetchLayerList();
+      } else {
+        this.fetchLayerList();
+      }
     }
   }
 
@@ -620,17 +711,25 @@ export class DTEMapComponent implements OnInit {
   }
 
   resetContext() {
+    for(let layerToRemove of Object.entries(this.layerMap)){
+      this.map.removeLayer(layerToRemove[1].layer);
+    }
     this.contextState = this.CONTEXT_NOT_SET;
+    this.aoiSource.clear();
     this.listOfLayersWFS = [];
     this.listOfLayersWFS = [];
     this.listOfSelectedLayers = [];
     this.layerMap = {};
     this.layersHierarchy = [];
+    this.displayLayersHierarchy = [];
     this.dateFrom = "";
     this.dateTo = "";
     this.aoiState = this.NO_AOI;
+    this.globals.bbox = [];
+    this.globals.areaOfInterest = null;
     this.aoi_BBOX = [];
     this.loadingLayers = false;
+    this.analysisUnits = [];
     this.deactivateDrawingAOI();
   }
 
@@ -638,7 +737,7 @@ export class DTEMapComponent implements OnInit {
 
   }
 
-  initLayerParameters(layer: any){    
+  async initLayerParameters(layer: any){    
     let _layer = this.layerMap[layer.data.id];
     this.loading = true;
     let layerSource: TileWMS = _layer.layer.getSource();
@@ -661,28 +760,53 @@ export class DTEMapComponent implements OnInit {
 
       let globalStartDate = this.globals.contextStartDate;
       let globalEndDate = this.globals.contextEndDate;
-      this.mediator.getDimensionValues(_layer.data, paramName)?.subscribe((param_object: any) => {
-        let values = param_object["values"];
-        if(paramName == "time"){
-          values = this.utils.cropListOfDates(globalStartDate, globalEndDate, param_object["values"]);
-        }
-        
-        //format = { default: string, units: string, name: string, values: list
+      if(this.loadingScenario){
 
-        layer.paramsObject[paramName] = {
-          default: param_object["default"],
-          values: values,
-          selected: values[0]
-        };
-        layerSource.updateParams(updatedLayerParams);
-        updatedLayerParams[paramName] = layer.paramsObject[paramName].selected;
+      }
+      let getDimensionPromise = this.mediator.getDimensionValues(_layer.data, paramName)?.toPromise();
+      if(this.loadingScenario){
+        await getDimensionPromise?.then((param_object: any) => {
+          let values = param_object["values"];
+          if(paramName == "time"){
+            values = this.utils.cropListOfDates(globalStartDate, globalEndDate, param_object["values"]);
+          }          
+          //format = { default: string, units: string, name: string, values: list
+          layer.paramsObject[paramName] = {
+            default: param_object["default"],
+            values: values,
+            selected: values[0]
+          };
+          layerSource.updateParams(updatedLayerParams);
+          updatedLayerParams[paramName] = layer.paramsObject[paramName].selected;
 
-        loadedParams++;
-        this.loading = loadedParams < paramsToLoad;
-      }, (error: any) => {
-        loadedParams++;
-        this.loading = loadedParams < paramsToLoad;
-      }); 
+          loadedParams++;
+          this.loading = loadedParams < paramsToLoad;
+        }, error => {
+          loadedParams++;
+          this.loading = loadedParams < paramsToLoad;
+        });
+      } else {
+        getDimensionPromise?.then((param_object: any) => {
+          let values = param_object["values"];
+          if(paramName == "time"){
+            values = this.utils.cropListOfDates(globalStartDate, globalEndDate, param_object["values"]);
+          }          
+          //format = { default: string, units: string, name: string, values: list
+          layer.paramsObject[paramName] = {
+            default: param_object["default"],
+            values: values,
+            selected: values[0]
+          };
+          layerSource.updateParams(updatedLayerParams);
+          updatedLayerParams[paramName] = layer.paramsObject[paramName].selected;
+
+          loadedParams++;
+          this.loading = loadedParams < paramsToLoad;
+        }, error => {
+          loadedParams++;
+          this.loading = loadedParams < paramsToLoad;
+        });
+      }
     }
   }
 
@@ -722,5 +846,178 @@ export class DTEMapComponent implements OnInit {
       }
     }
     
+  }
+
+  filterLayers(){
+    //Create hard copy of layer hierarcy
+    this.loadingFilter = true;
+    let filteredLayers = JSON.parse(JSON.stringify(this.layersHierarchy));
+    let filterName = this.layerFilter.toUpperCase();
+    for(let element of filteredLayers){
+      let layers = element["layers"].filter((layer: any) => {        
+        return layer.readable_name.toUpperCase().includes(filterName);
+      })
+      element.layers = layers;
+    }
+    this.displayLayersHierarchy = filteredLayers;   
+    this.loadingFilter = false; 
+  }
+
+  openPopup(coordinates: Coordinate){
+    this.dataPreviewOverlay.setPosition(coordinates);
+  }
+
+  closePopup(){
+    this.dataPreviewOverlay.setPosition(undefined!);
+    this.dataPreviewPopupCloser?.blur();
+  }
+
+  generateApplicationState(){
+    let sharingObject: ApplicationState = {
+      context: {
+        areaOfInterest: this.sharingService.buildGeoJsonString(this.aoiSource),
+        basemap: this.basemapSelect,
+        startDate: this.dateFrom,
+        endDate: this.dateTo,
+        limits: this.selectedLimit
+      },
+
+      layers: Object.values(this.listOfSelectedLayers).map((element) => {
+        return {
+          id: element.data.id,
+          expanded: element.expanded,
+          opacity: element.opacity,
+          visible: element.visible,
+          params: Object.keys(element.paramsObject).map(paramKey => {
+            return {
+              name: paramKey, 
+              value: element.paramsObject[paramKey].selected
+            };
+          })
+        };
+      }),
+
+      analysisUnits: this.analysisUnitComponent.map(analysisUnit => {
+        return {
+          layerIds: analysisUnit.layers.map(layerElement => {return layerElement.model.data.id}),
+          name: analysisUnit.analysisName,
+          analysisType: analysisUnit.typeSelector.toString(),
+          coordinates: analysisUnit.pointCoordinates,
+          samplingResolution: analysisUnit.samplingSelector.toString(),
+          histogramClasses: analysisUnit.histogramClasses.toString(),
+          analysisPerformed: analysisUnit.doneAnalysis,
+          expanded: analysisUnit.expanded
+        };
+      })
+    };
+    return sharingObject;
+  }
+
+  uploadAplicationStateFile(files: any){
+    let file = files[0];
+    console.log(file);
+    
+    if (file) {
+      var reader = new FileReader();
+      let state: ApplicationState | null;
+      reader.readAsText(file, "UTF-8");
+      reader.onload = (evt: any) => {
+        state = JSON.parse(evt.target.result);
+        this.loadApplicationState(state!);
+      }
+      reader.onerror = (error) => {
+        state = null;
+        console.log('error reading file');
+      }
+    }
+  }
+
+  async loadApplicationState(state: ApplicationState){
+    try {      
+      //Remove everything before starting.
+      this.resetContext();
+      this.loadingScenario = true;
+
+      //let state = this.sharingService.exampleScenario;
+      this.basemapSelect = state!.context.basemap;
+      this.dateFrom = state!.context.startDate;
+      this.dateTo = state!.context.endDate;
+      this.selectedLimit = state!.context.limits
+      this.aoiSource =  new VectorSource({
+        features: new GeoJSON().readFeatures(state!.context.areaOfInterest)
+      })
+      this.aoiState = this.SELECTED_AOI;
+      this.aoiVectorLayer.setSource(this.aoiSource);
+      this.aoiVectorLayer.setVisible(true);
+      await this.setContext();
+
+      this.listOfSelectedLayers = [];
+      for(let scenarioLayer of state!.layers){
+        let layer = this.layerMap[scenarioLayer.id];
+        layer.expanded = scenarioLayer.expanded;
+        layer.visible = scenarioLayer.visible;
+        layer.layer.setVisible(layer.visible);
+        layer.opacity = scenarioLayer.opacity;
+        layer.layer.setOpacity(layer.opacity);      
+        await this.initLayerParameters(layer);
+        for(let param of scenarioLayer.params){
+          layer.paramsObject[param.name].selected = param.value;
+        }
+        console.log("loaded", scenarioLayer);
+        
+        this.listOfSelectedLayers.push(layer);
+      }
+      console.log("finished loading layers");
+      
+      this.analysisUnits = state!.analysisUnits;  
+      this.loadingScenario = false;   
+    } catch (error) {
+      this.resetContext();
+      this.loadingScenario = false;  
+      console.log('Error loading scenario');
+    }
+  }
+
+  saveScenario(){
+    let scenarioJson = JSON.stringify(this.generateApplicationState());
+    this.sharingService.createScenario("New Scenario", scenarioJson).subscribe((data: any) => {
+      console.log("Your scenario was created!");
+      this.loadScenariosList();
+    });
+  }
+
+  deleteScenario(scenario: ScenarioModel){
+    this.sharingService.deleteScenario(scenario.id).subscribe(data => {
+      console.log(data);
+      this.loadScenariosList();
+    })
+  }
+
+  downloadScenario(){
+    let sharingObject = this.generateApplicationState();
+    let a = document.createElement('a');
+    document.body.appendChild(a);
+    const blob = new Blob([JSON.stringify(sharingObject)], { type: 'application/json' });
+    const url= window.URL.createObjectURL(blob);
+    let filename = "Scenario.json";
+
+    a.setAttribute("href", url);
+    a.setAttribute("download", filename);
+    a.click();
+    
+    window.URL.revokeObjectURL(url);
+    a.remove();
+  }
+
+  loadScenariosList(){
+    this.sharingService.loadUserScenarios().subscribe((data: any) => {
+      console.log(data);
+      this.userScenarios = data;
+    });
+  }
+
+  applyScenario(scenario: ScenarioModel){
+    let scenarioObject = JSON.parse(scenario.scenario_json);
+    this.loadApplicationState(scenarioObject);
   }
 }

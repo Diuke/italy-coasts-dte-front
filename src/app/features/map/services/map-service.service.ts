@@ -3,6 +3,7 @@ import { UrlsService } from 'src/app/core/services/urls.service';
 import { environment } from 'src/environments/environment';
 import Map from 'ol/Map';
 import { MapLayerModel } from 'src/app/core/models/mapLayerModel';
+import { HttpClient } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root'
@@ -11,10 +12,12 @@ export class MapServiceService {
   BASE_URL = environment.base_path;
 
   public globalMap: Map | null= null;
+  public capturingAnalysisPoint: boolean = false;
   public layerMap: { [id: number]: MapLayerModel } = {};
 
   constructor(
-    private urlsService: UrlsService
+    private urlsService: UrlsService,
+    private http: HttpClient
   ) { }
 
   setMap(map: Map){
@@ -31,12 +34,12 @@ export class MapServiceService {
 
   getLayersWMS(){
     let URL = this.urlsService.buildUrl("layers_wms");
-    return fetch(URL);
+    return this.http.get(URL);
   }
 
   getLayersWFS(){
     let URL = this.urlsService.buildUrl("layers_wfs");
-    return fetch(URL);
+    return this.http.get(URL);
   }
 
   getLayerHierarchy(start_date: string, end_date: string){
@@ -44,6 +47,6 @@ export class MapServiceService {
     if(start_date && end_date){
       URL += "?start_date=" + start_date + "&end_date=" + end_date;
     }
-    return fetch(URL);
+    return this.http.get(URL);
   }
 }

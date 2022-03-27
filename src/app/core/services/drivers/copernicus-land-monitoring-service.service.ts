@@ -63,4 +63,12 @@ export class CopernicusLandMonitoringServiceService {
     console.log(resp);
     return resp;
   }
+
+  requestAreaData(layer_model: MapLayerModel, bbox: number[], polygonGeoJSON: string, numberOfClasses: number, resolution: string, params?: any){
+    if(layer_model.data.type == "ARCGIS_IS"){
+
+    } else {
+      
+    }
+  }
 }

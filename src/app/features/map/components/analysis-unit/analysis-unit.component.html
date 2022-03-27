@@ -16,13 +16,13 @@
             </div>
 
             <div class="col-1">
-                <fa-icon (click)="expandAnalysisUnit(content)"
+                <fa-icon (click)="openAnalysisUnit()"
                     class="selectable" [icon]="_faExpandArrowsAlt"></fa-icon>
             </div>
 
             <div class="col-2" style="text-align: right;">
                 <fa-icon class="selectable" [icon]="_faTrash"
-                    (click)="deleteAnalysis()"></fa-icon>
+                    (click)="remove()"></fa-icon>
             </div>
         </div>
 
@@ -30,7 +30,7 @@
             
             <hr>
 
-            <select [(ngModel)]="layerSelector" class="form-select my-2" aria-label="Select Layer">
+            <select [(ngModel)]="layerSelector" class="form-select my-2" aria-label="Select Layer" (click)="buildAvailableLayers()">
                 <option [value]="0" selected>Select a layer</option>
                 <option *ngFor="let layer of availableLayers" [value]="layer.data.id">{{layer.data.readable_name}}</option>
             </select>
@@ -51,12 +51,27 @@
 
             <hr>
 
+            <small>Analysis Type</small>
             <select [disabled]="layers.length == 0" [(ngModel)]="typeSelector" class="form-select mb-2" aria-label="Select Analysis Type">
                 <option [value]="0" selected>Type</option>
                 <option [value]="POINT_TYPE">Point Analysis</option>
                 <option [value]="AREA_TYPE">Area Analysis</option>
             </select>
 
+            <hr>
+
+            <div *ngIf="typeSelector == AREA_TYPE">
+                <small>Resolution</small>
+                <select [disabled]="layers.length == 0" [(ngModel)]="samplingSelector" class="form-select mb-2" aria-label="Select Analysis Type">
+                    <option [value]="0" selected>Sampling Resolution</option>
+                    <option [value]="LOW_RESOLUTION">Low (10x10 Samples)</option>
+                    <option [value]="HIGH_RESOLUTION">High (20x20 Samples)</option>
+                </select>
+
+                <small>Number of classes for histogram:</small>
+                <input type="number" min="1" [(ngModel)]="histogramClasses" class="form-control" aria-describedby="Number of classes of the histogram">
+            </div>
+            
             <div *ngIf="typeSelector == POINT_TYPE">
                 <div class="row">
                     <div class="form-group col">
@@ -73,26 +88,12 @@
                 </button>
             </div>
 
-            <button class="btn btn-success w-100 my-2" (click)="performAnalysis()">
+            <button *ngIf="!doneAnalysis" class="btn btn-success w-100 my-2" (click)="performAnalysis(true)">
                 Perform Analysis
             </button>
-
-            <div class="analysis-area" *ngIf="doneAnalysis">
-                <div class="" *ngIf="showMonotemporal">
-                    <div *ngFor="let dataPoint of singlePointMonotemporalAnalysis">
-                        <h5>{{ dataPoint.readable_name + ": " + dataPoint.data.value + " " + dataPoint.data.units}} </h5>
-                    </div>
-                </div>
-
-                <div class="depth-profile-graph" *ngIf="showDepthProfile">
-                    <plotly-plot [data]="graphDepthProfile.data" [layout]="graphDepthProfile.layout" [config]="graphDepthProfile.config"></plotly-plot>
-                </div>
-
-                <div class="timeseries-profile-graph" *ngIf="showTimeseries">
-                    <plotly-plot [data]="graphTimeSeries.data" [layout]="graphTimeSeries.layout" [config]="graphTimeSeries.config"></plotly-plot>
-                </div>
-            </div>
-            
+            <button *ngIf="doneAnalysis" class="btn btn-success w-100 my-2" (click)="openAnalysisUnit()">
+                Show Analysis
+            </button>            
         </div>
     </div>
 </div>
@@ -112,7 +113,7 @@
                 </div>
             </div>
     
-            <div [hidden]="!expanded">
+            <div>
                 
                 <hr>
     
@@ -135,13 +136,28 @@
                     </div>
                 </div>
     
-                <hr>
-    
+                <hr>   
+                
+                <small>Analysis Type</small>
                 <select [disabled]="layers.length == 0" [(ngModel)]="typeSelector" class="form-select mb-2" aria-label="Select Analysis Type">
                     <option [value]="0" selected>Type</option>
                     <option [value]="POINT_TYPE">Point Analysis</option>
                     <option [value]="AREA_TYPE">Area Analysis</option>
                 </select>
+
+                <hr>
+
+                <small>Resolution:</small>
+                <select *ngIf="typeSelector == AREA_TYPE" [disabled]="layers.length == 0" [(ngModel)]="samplingSelector" class="form-select mb-2" aria-label="Select Analysis Type">
+                    <option [value]="0" selected>Sampling Resolution</option>
+                    <option [value]="LOW_RESOLUTION">Low (10x10 Samples)</option>
+                    <option [value]="HIGH_RESOLUTION">High (20x20 Samples)</option>
+                </select>
+                
+                <small>Number of classes for histogram:</small>
+                <input type="number" min="1" [(ngModel)]="histogramClasses" class="form-control" aria-describedby="Number of classes of the histogram">
+
+                <hr>
     
                 <div *ngIf="typeSelector == POINT_TYPE">
                     <div class="row">
@@ -159,23 +175,131 @@
                     </button>
                 </div>
     
-                <button class="btn btn-success w-100 my-2" (click)="performAnalysis()">
-                    Perform Analysis
+                <button class="btn btn-success w-100 my-2" (click)="performAnalysis(false)">
+                    Redo Analysis
                 </button>
     
-                <div class="analysis-area" *ngIf="doneAnalysis">
+                <div class="analysis-area mt-5" *ngIf="doneAnalysis">
                     <div class="" *ngIf="showMonotemporal">
-                        <div *ngFor="let dataPoint of singlePointMonotemporalAnalysis">
-                            <h5>{{ dataPoint.readable_name + ": " + dataPoint.data.value + " " + dataPoint.data.units}} </h5>
+
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Layer Name</th>
+                                    <th scope="col">Value</th>
+                                    <!--
+                                    <th scope="col">Low</th>
+                                    <th scope="col">Normal</th>
+                                    <th scope="col">High</th>
+                                    -->
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let dataPoint of singlePointMonotemporalAnalysis">
+                                    <th>{{dataPoint.readable_name + " (" + dataPoint.data.units + ")"}}</th>
+                                    <td>{{dataPoint.data.value | number: '.2-7'}}</td>
+                                    <!--
+                                    <td>To be determined</td>
+                                    <td>To be determined</td>
+                                    <td>To be determined</td>
+                                    -->
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div *ngIf="showDepthProfile" class="mt-5">
+                        <h2 class="text-center">Depth Profile:</h2>
+                        <div class="loading-analysis" *ngIf="graphDepthProfile.length < numberOfDepthProfilePlots">
+                            <div class="spinner-border" role="status" >
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                        <div *ngIf="numberOfDepthProfilePlots == graphDepthProfile.length">
+                            <div class="depth-profile-graph" *ngFor="let plot of graphDepthProfile">
+                                <div>
+                                    <fa-icon (click)="donwloadDepthProfileData(plot)" title="Export as CSV"
+                                        class="selectable" [icon]="_faDownload"></fa-icon>
+                                </div>
+
+                                <plotly-plot *ngIf="plot.data.length > 0"
+                                    [data]="plot.data" 
+                                    [layout]="plot.layout" 
+                                    [config]="plot.config"
+                                ></plotly-plot>
+                                <hr>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <div *ngIf="showTimeseries" class="mt-5">
+                        <h2 class="text-center">Time Series:</h2>
+                        <div class="loading-analysis">
+                            <div class="spinner-border" role="status" *ngIf="graphTimeSeries.length < numberOfTimeSeriesPlots">
+                                <span class="sr-only">Loading...</span>
+                            </div>
+                        </div>
+                        <div *ngIf="numberOfTimeSeriesPlots == graphTimeSeries.length">
+                            <div class="timeseries-profile-graph" *ngFor="let plot of graphTimeSeries">
+                                <div>
+                                    <fa-icon (click)="donwloadTimeSeriesData(plot)" title="Export as CSV"
+                                        class="selectable" [icon]="_faDownload"></fa-icon>
+                                </div>
+                                <plotly-plot *ngIf="plot.data.length > 0"
+                                    [data]="plot.data" 
+                                    [layout]="plot.layout" 
+                                    [config]="plot.config"
+                                ></plotly-plot>
+                                <hr>
+                            </div>
                         </div>
                     </div>
-    
-                    <div class="depth-profile-graph" *ngIf="showDepthProfile">
-                        <plotly-plot [data]="graphDepthProfile.data" [layout]="graphDepthProfile.layout" [config]="graphDepthProfile.config"></plotly-plot>
-                    </div>
-    
-                    <div class="timeseries-profile-graph" *ngIf="showTimeseries">
-                        <plotly-plot [data]="graphTimeSeries.data" [layout]="graphTimeSeries.layout" [config]="graphTimeSeries.config"></plotly-plot>
+
+                    <div *ngIf="showArea">
+                        <div class="mt-5">
+                            <h2>Total area:</h2> <span>{{totalArea | number: '.2-2'}}</span><span> km²</span>
+                        </div>
+
+                        <div class="mt-5">
+                            <h2>Summary statistics</h2>
+                        </div>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Layer Name</th>
+                                    <th scope="col">Min</th>
+                                    <th scope="col">Max</th>
+                                    <th scope="col">Average</th>
+                                    <th scope="col">Median</th>
+                                    <th scope="col">Standard Deviation</th>
+                                    <th scope="col"># of samples</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let result of areaResults">
+                                    <th>{{result.readable_name + " (" + result.units + ")"}}</th>
+                                    <td>{{result.data.min | number: '.2-4'}}</td>
+                                    <td>{{result.data.max | number: '.2-4'}}</td>
+                                    <td>{{result.data.average | number: '.2-4'}}</td>
+                                    <td>{{result.data.median | number: '.2-4'}}</td>
+                                    <td>{{result.data.standard_deviation | number: '.2-4'}}</td>
+                                    <td>{{result.data.total_samples_with_value}}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <div class="mt-5 text-center">
+                            <h2>Histograms</h2>
+                        </div>
+                        <div *ngFor="let result of areaResults">
+                            <plotly-plot
+                                [data]="result.histogram.data" 
+                                [layout]="result.histogram.layout"
+                            ></plotly-plot>
+                        </div>
+
+
                     </div>
                 </div>
                 
