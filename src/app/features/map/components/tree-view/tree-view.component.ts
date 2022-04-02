@@ -1,8 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { faChevronDown, faGreaterThan } from '@fortawesome/free-solid-svg-icons';
-import { LayerModel } from 'src/app/core/models/layerModel';
-
-type nodeModel = { id: string, name: string, layers: LayerModel[] };
+import { LayerCategory, LayerModel } from 'src/app/core/models/layerModel';
+import { LayerService } from 'src/app/core/services/layer.service';
 
 @Component({
   selector: 'app-tree-view',
@@ -12,24 +11,30 @@ type nodeModel = { id: string, name: string, layers: LayerModel[] };
 export class TreeViewComponent implements OnInit {
 
   _faGreaterThan = faGreaterThan;
-  _faChevronDown = faChevronDown
+  _faChevronDown = faChevronDown;
 
-  @Input() node: nodeModel;
+  layerSelected: { [layerId: number]: boolean } = {};
+
+  @Input() node: LayerCategory;
   @Output() layerManipulation: EventEmitter<any> = new EventEmitter<any>();
   /**
   "id": 22,
   "name": "Sea Water Potential Temperature (monthly-m)",
   "layers": []
   */
-  layers: any[] = [];
+  layers: LayerModel[] = [];
 
   expanded = false;
 
-  childrenLayers: any[] = [];
-
   numberOfChildren: number = 0;
 
-  constructor() { }
+  constructor(
+    public layerService: LayerService
+  ) {
+    this.layerService.getLayerSelected.subscribe(layers => {
+      this.layerSelected = layers;
+    })
+  }
 
   toggleExpanded(){
     this.expanded = !this.expanded;
@@ -38,26 +43,18 @@ export class TreeViewComponent implements OnInit {
   ngOnInit(): void {
     this.layers = this.node.layers;
     this.numberOfChildren = this.totalChildren(this.node);
-    
-    this.layers.forEach(element => {
-      this.childrenLayers.push({
-        selected: false,
-        data: element
-      });
-    });
   }
 
-  totalChildren(root: nodeModel){
+  totalChildren(root: LayerCategory){
     let children_layers = root.layers.length;    
     return children_layers;
   }
 
-  emitChangeSelected(layer: any){
-    layer.selected = !layer.selected;
+  emitChangeSelected(layer: LayerModel){
     let data = {
-      id: layer.data.id,
+      id: layer.id,
       event: "selected",
-      value: layer.selected
+      value: this.layerSelected[layer.id]
     }
     this.layerManipulation.emit(data);
   }

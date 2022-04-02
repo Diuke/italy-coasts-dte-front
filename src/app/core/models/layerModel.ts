@@ -21,3 +21,10 @@ export class LayerModel {
     more_data_url: string
     copyright: string
 }
+
+export class LayerCategory {
+    id: number
+    layers: LayerModel[]
+    name: string
+    selected: boolean
+}

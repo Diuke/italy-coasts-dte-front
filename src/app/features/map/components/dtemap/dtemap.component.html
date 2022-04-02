@@ -129,7 +129,7 @@
                             <span class="sr-only">Loading...</span>
                         </div>
                         <div *ngIf="!loadingFilter">
-                            <div *ngFor="let node of displayLayersHierarchy">
+                            <div *ngFor="let node of displayLayersHierarchy" #treeViewComponent>
                                 <app-tree-view [node]="node" (layerManipulation)="handleLayerManipulation($event)">
                                 </app-tree-view>
                             </div>
@@ -264,7 +264,13 @@
 
                 </div>
 
+                <hr>
+
                 <div class="container-fluid my-3">
+                    <div class="mb-1">
+                        <small>Scenario Name</small>
+                        <input type="text" [(ngModel)]="scenarioName" class="form-control" placeholder="Add a name">
+                    </div>
                     <button class="btn btn-scenario w-100" *ngIf="isLoggedIn"
                         (click)="saveScenario()">
                         Save Scenario
