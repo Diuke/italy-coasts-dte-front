@@ -31,6 +31,9 @@ import { Overlay } from 'ol';
 import { AnalysisUnitComponent } from '../analysis-unit/analysis-unit.component';
 import { ApplicationState, ScenarioModel } from 'src/app/core/models/applicationState';
 import { SharingService } from 'src/app/core/services/sharing.service';
+import { LayerCategory } from 'src/app/core/models/layerModel';
+import { TreeViewComponent } from '../tree-view/tree-view.component';
+import { LayerService } from 'src/app/core/services/layer.service';
 
 @Component({
   selector: 'app-dtemap',
@@ -70,6 +73,7 @@ export class DTEMapComponent implements OnInit {
   SATELLITE_BASEMAP = 2;
 
   loadingScenario: boolean = false;
+  scenarioName: string = "";
 
   /**Variable for building the EOX Sentinel-2 cloudless base map from the WMTS Capabilities */
   parser = new WMTSCapabilities();
@@ -133,12 +137,15 @@ export class DTEMapComponent implements OnInit {
 
   satelliteBasemap: TileLayer<WMTS>;
 
-  layersHierarchy: any[] = [];
-  displayLayersHierarchy: any[] = [];
+  layersHierarchy: LayerCategory[] = [];
+  displayLayersHierarchy: LayerCategory[] = [];
+  triggerChangeLayers = 0;
 
   captureState: number = this.NOT_CAPTURING_POINT;
 
   @ViewChildren(AnalysisUnitComponent) analysisUnitComponent: QueryList<AnalysisUnitComponent>;
+  @ViewChildren(TreeViewComponent) treeViewComponent: QueryList<TreeViewComponent>;
+
   analysisUnits: any[] = [];
 
   layerFilter: string = "";
@@ -159,7 +166,8 @@ export class DTEMapComponent implements OnInit {
     private mediator: MediatorService,
     public globals: GlobalsService,
     private utils: UtilsService,
-    private sharingService: SharingService
+    private sharingService: SharingService,
+    private layerService: LayerService
   ) { }
 
   ngOnInit(): void {
@@ -345,14 +353,27 @@ export class DTEMapComponent implements OnInit {
     if(this.loadingScenario){
       await promise.then((data: any) => {
         this.layersHierarchy = data;
-        this.displayLayersHierarchy = data;
+        let layerSelected: any = {};
+        for(let category of this.layersHierarchy){
+          for(let layer of category.layers){
+            layerSelected[layer.id] = false;
+          }
+        }   
+        this.layerService.setLayerSelected(layerSelected);
+        this.displayLayersHierarchy = data;     
         this.listOfLayersWMS = this.hierarchyToList(this.layersHierarchy);
-        this.initLayers();
+        this.initLayers(); 
         this.loadingLayers = false;
       });
+        
     } else {
       promise.then((data: any) => {
-        this.layersHierarchy = data;
+        this.layersHierarchy = data;       
+        let layerSelected: any = {};
+        for(let layer of this.layersHierarchy){
+          layerSelected[layer.id] = false;
+        }  
+        this.layerService.setLayerSelected(layerSelected); 
         this.displayLayersHierarchy = data;
         this.listOfLayersWMS = this.hierarchyToList(this.layersHierarchy);
         this.initLayers();
@@ -829,6 +850,7 @@ export class DTEMapComponent implements OnInit {
     }
     else if (data.event == "selected") {
       let layer = this.layerMap[data.id];
+      this.layerService.changeLayerSelected(data.id, data.value);
       if (this.listOfSelectedLayers.includes(layer)) {
         let index = this.listOfSelectedLayers.indexOf(layer);
         this.listOfSelectedLayers.splice(index, 1);
@@ -951,6 +973,8 @@ export class DTEMapComponent implements OnInit {
       this.aoiVectorLayer.setVisible(true);
       await this.setContext();
 
+      console.log(this.treeViewComponent);
+      console.log(state!.layers);
       this.listOfSelectedLayers = [];
       for(let scenarioLayer of state!.layers){
         let layer = this.layerMap[scenarioLayer.id];
@@ -963,10 +987,10 @@ export class DTEMapComponent implements OnInit {
         for(let param of scenarioLayer.params){
           layer.paramsObject[param.name].selected = param.value;
         }
-        console.log("loaded", scenarioLayer);
-        
-        this.listOfSelectedLayers.push(layer);
+        this.layerService.changeLayerSelected(scenarioLayer.id, true);
+        this.listOfSelectedLayers.push(layer);      
       }
+      this.triggerChangeLayers += 1;
       console.log("finished loading layers");
       
       this.analysisUnits = state!.analysisUnits;  
@@ -974,13 +998,15 @@ export class DTEMapComponent implements OnInit {
     } catch (error) {
       this.resetContext();
       this.loadingScenario = false;  
+      console.log(error);
       console.log('Error loading scenario');
     }
   }
 
   saveScenario(){
     let scenarioJson = JSON.stringify(this.generateApplicationState());
-    this.sharingService.createScenario("New Scenario", scenarioJson).subscribe((data: any) => {
+    let name = this.scenarioName == "" ? "New Scenario" : this.scenarioName;
+    this.sharingService.createScenario(name, scenarioJson).subscribe((data: any) => {
       console.log("Your scenario was created!");
       this.loadScenariosList();
     });

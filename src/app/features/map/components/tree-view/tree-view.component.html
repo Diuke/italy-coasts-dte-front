@@ -7,12 +7,12 @@
 
     <div [hidden]="!expanded">
         <ul class="list-group">
-            <li class="list-group-item" *ngFor="let layer of childrenLayers">
+            <li class="list-group-item" *ngFor="let layer of layers">
                 <div class="form-check form-switch">
-                    <input [id]="layer.data.id" class="form-check-input" type="checkbox" [value]="layer.selected"
+                    <input [id]="layer.id" class="form-check-input" type="checkbox" [(ngModel)]="layerSelected[layer.id]!"
                         (change)="emitChangeSelected(layer)">
-                    <label class="form-check-label" [for]="layer.data.id">
-                        {{layer.data.readable_name}}
+                    <label class="form-check-label" [for]="layer.id">
+                        {{layer.readable_name}} 
                     </label>
 
                 </div>
