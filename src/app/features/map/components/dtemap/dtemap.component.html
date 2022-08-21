@@ -263,15 +263,15 @@
                     </button>
 
                 </div>
-
+                
                 <hr>
-
+                <!--
                 <div class="container-fluid my-3">
                     <div class="mb-1">
                         <small>Scenario Name</small>
                         <input type="text" [(ngModel)]="scenarioName" class="form-control" placeholder="Add a name">
                     </div>
-                    <button class="btn btn-scenario w-100" *ngIf="isLoggedIn"
+                    <button class="btn btn-scenario w-100" 
                         (click)="saveScenario()">
                         Save Scenario
                     </button>
@@ -308,8 +308,9 @@
                         </li>
                     </ul>
                 </div>
-                
+            -->
             </div>
+            
             <!-- END Tab Scenarios -->
 
         </div>
@@ -320,12 +321,25 @@
     </div>
     -->
     
+    <div [class]="{'left-margin': sidebarLeftOpen}" class="basemap-picker ol-control">
+        <button ngbTooltip="Basemaps" [openDelay]="500" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <fa-icon [icon]="_faLayers"></fa-icon>
+        </button>
+
+        <ul class="dropdown-menu">
+            <li><a class="dropdown-item" (click)="changeBasemap(OSM_BASEMAP)">OpenStreetMap</a></li>
+            <li><a class="dropdown-item" (click)="changeBasemap(SATELLITE_BASEMAP)">Satellite - Sentinel-2 Cloudless</a></li>
+        </ul>
+
+    </div>
+    <!--
     <div class="basemap-picker" id="basemap-picker" [class]="{'left-margin': sidebarLeftOpen}">
         <select [(ngModel)]="basemapSelect" class="form-select" name="basemapSelect" id="basemapSelect" (change)="changeBasemap()">
             <option [value]="OSM_BASEMAP">OpenStreetMap</option>
             <option [value]="SATELLITE_BASEMAP">Satellite - Sentinel-2 Cloudless</option>
         </select>
     </div>
+    -->
 
     <div class="map-container" [class]="{'left-margin': sidebarLeftOpen, 'right-margin': sidebarRightOpen}" id="map">
         <!--
