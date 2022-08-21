@@ -147,17 +147,19 @@
 
                 <hr>
 
-                <small>Resolution:</small>
-                <select *ngIf="typeSelector == AREA_TYPE" [disabled]="layers.length == 0" [(ngModel)]="samplingSelector" class="form-select mb-2" aria-label="Select Analysis Type">
-                    <option [value]="0" selected>Sampling Resolution</option>
-                    <option [value]="LOW_RESOLUTION">Low (10x10 Samples)</option>
-                    <option [value]="HIGH_RESOLUTION">High (20x20 Samples)</option>
-                </select>
-                
-                <small>Number of classes for histogram:</small>
-                <input type="number" min="1" [(ngModel)]="histogramClasses" class="form-control" aria-describedby="Number of classes of the histogram">
+                <div *ngIf="typeSelector == AREA_TYPE">
+                    <small>Resolution:</small>
+                    <select *ngIf="typeSelector == AREA_TYPE" [disabled]="layers.length == 0" [(ngModel)]="samplingSelector" class="form-select mb-2" aria-label="Select Analysis Type">
+                        <option [value]="0" selected>Sampling Resolution</option>
+                        <option [value]="LOW_RESOLUTION">Low (10x10 Samples)</option>
+                        <option [value]="HIGH_RESOLUTION">High (20x20 Samples)</option>
+                    </select>
 
-                <hr>
+                    <small>Number of classes for histogram:</small>
+                    <input type="number" min="1" [(ngModel)]="histogramClasses" class="form-control" aria-describedby="Number of classes of the histogram">
+
+                    <hr>
+                </div>
     
                 <div *ngIf="typeSelector == POINT_TYPE">
                     <div class="row">

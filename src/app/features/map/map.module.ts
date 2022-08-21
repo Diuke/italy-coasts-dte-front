@@ -5,6 +5,8 @@ import { DTEMapComponent } from './components/dtemap/dtemap.component';
 import { SharedModule } from 'src/app/shared/shared.module';
 import { TreeViewComponent } from './components/tree-view/tree-view.component';
 import { AnalysisUnitComponent } from './components/analysis-unit/analysis-unit.component';
+import { NavbarComponent } from './components/navbar/navbar.component';
+import { TutorialComponent } from './components/tutorial/tutorial.component';
 
 
 @NgModule({
@@ -13,6 +15,7 @@ import { AnalysisUnitComponent } from './components/analysis-unit/analysis-unit.
     DTEMapComponent,
     TreeViewComponent,
     AnalysisUnitComponent, 
+    NavbarComponent, TutorialComponent
   ],
   imports: [
     CommonModule,

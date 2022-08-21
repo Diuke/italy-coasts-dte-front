@@ -2,7 +2,7 @@ import { Component, OnInit, QueryList, ViewChildren } from '@angular/core';
 import Map from 'ol/Map';
 import View from 'ol/View';
 import OSM from 'ol/source/OSM';
-import WMTS, { optionsFromCapabilities } from  'ol/source/WMTS';
+import WMTS, { optionsFromCapabilities as optionsFromWMTSCapabilities } from  'ol/source/WMTS';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities';
 import TileWMS from 'ol/source/TileWMS';
 import Draw from 'ol/interaction/Draw'
@@ -14,7 +14,7 @@ import ImageArcGISRest from 'ol/source/ImageArcGISRest';
 import Style from 'ol/style/Style';
 import Stroke from 'ol/style/Stroke';
 import { MapServiceService } from '../../services/map-service.service';
-import { faBars, faDrawPolygon, faGreaterThan, faLessThan, faEye, faEyeSlash, faChevronDown, faChevronUp, faInfoCircle, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faBars, faDrawPolygon, faGreaterThan, faLessThan, faEye, faEyeSlash, faChevronDown, faChevronUp, faInfoCircle, faTrash, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 import Polygon from 'ol/geom/Polygon';
 import Fill from 'ol/style/Fill';
 import { getVectorContext } from 'ol/render';
@@ -53,6 +53,7 @@ export class DTEMapComponent implements OnInit {
   _faChevronDown = faChevronDown;
   _faInfoCircle = faInfoCircle;
   _faTrash = faTrash;
+  _faLayers = faLayerGroup;
 
   scaleLineControl = new ScaleLine();
 
@@ -249,12 +250,15 @@ export class DTEMapComponent implements OnInit {
     .then((response) => {
       return response.text();
     })
-    .then((text) => {
-      const result = this.parser.read(text);
-      let options = optionsFromCapabilities(result, {
-        layer: 's2cloudless-2020_3857_512',
+    .then((text) => {      
+      let result = this.parser.read(text);
+      
+      let options = optionsFromWMTSCapabilities(result, {
+        layer: 's2cloudless-2020_3857',
         matrixSet: 'EPSG:3857'
       });
+      console.log(options);
+      
       options.attributions =  "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2020)";
       this.satelliteBasemap = new TileLayer({
         opacity: 1,
@@ -831,8 +835,8 @@ export class DTEMapComponent implements OnInit {
     }
   }
 
-  changeBasemap(){
-    if(this.basemapSelect == this.OSM_BASEMAP){
+  changeBasemap(newBasemap: number){
+    if(newBasemap == this.OSM_BASEMAP){
       this.osmBasemap.setVisible(true);
       this.satelliteBasemap.setVisible(false);
     } else {

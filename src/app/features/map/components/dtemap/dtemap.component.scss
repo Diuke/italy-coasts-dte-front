@@ -18,7 +18,7 @@
 .icon-left-container{
   position: absolute;
   z-index: 999;
-  background: #f0f0f0;
+  background: #f6f6f6;
   color: #16743a;
   border-radius: 0 5px 5px 0;
   top: 50%;
@@ -35,7 +35,7 @@
 .icon-right-container{
   position: absolute;
   z-index: 999;
-  background: #f0f0f0;
+  background: #f6f6f6; 
   color: #16743a;
   border-radius: 5px 0 0 5px;
   top: 50%;
@@ -119,7 +119,7 @@
 
 .mouse-position{
     position: absolute;
-    top: 9%;
+    top: 10%;
     left: 50px;
     z-index: 1000;
     border: 1px solid rgb(189, 189, 189);
@@ -132,15 +132,15 @@
 
 .basemap-picker{
   position: absolute;
-  top: 9%;
+  top: 10%;
   left: 50px;
   z-index: 1000;
-  border: 1px solid #16743a;;
-  background: #16743a;;
   border-radius: 5px;
   padding: 3px;
-  width: 206px;
+  width: 50px;
   text-align: center;
+  cursor: pointer;
+  font-size: 25px;
 }
 
 .values-box{
