@@ -2,6 +2,15 @@
 
 /* Importing Bootstrap SCSS file. */
 @import '~bootstrap/scss/bootstrap';
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3&family=Work+Sans&display=swap');
+
+h1, h2 {
+  font-family: 'Work Sans', sans-serif!important;
+}
+
+body{
+  font-family: 'Source Sans 3', sans-serif!important;
+}
 
 body{
     overflow-x: hidden !important;
@@ -38,3 +47,7 @@ body{
     background: #555; 
   }
   /*CUSTOM SCROLLBAR*/
+
+  :root{
+    --bs-font-sans-serif: 'Source Sans 3', sans-serif!important;
+  }

@@ -69,6 +69,7 @@ export class DTEMapComponent implements OnInit {
 
   LAND_10KM_SEA_12NM = 1;
   LAND_10KM_SEA_ALL = 2;
+  UNBOUNDED_LIMIT = 3;
 
   OSM_BASEMAP = 1;
   SATELLITE_BASEMAP = 2;
@@ -121,7 +122,7 @@ export class DTEMapComponent implements OnInit {
   aoi_BBOX: any[] = [];
 
   //Value of the selected limit form control
-  selectedLimit: number = this.LAND_10KM_SEA_ALL;
+  selectedLimit: number = this.UNBOUNDED_LIMIT;
   activeBoundaryLayer: VectorLayer<VectorSource<Polygon>> | null;
 
   //Values of the date range form controls
@@ -257,7 +258,6 @@ export class DTEMapComponent implements OnInit {
         layer: 's2cloudless-2020_3857',
         matrixSet: 'EPSG:3857'
       });
-      console.log(options);
       
       options.attributions =  "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2020)";
       this.satelliteBasemap = new TileLayer({
@@ -334,7 +334,7 @@ export class DTEMapComponent implements OnInit {
       }),
       style: limitStyle,
       opacity: 1,
-      visible: true,
+      visible: false,
       zIndex: 10
     });
 
@@ -474,7 +474,7 @@ export class DTEMapComponent implements OnInit {
         data: layerData,
         layer: layer,
         visible: false,
-        expanded: true,
+        expanded: false,
         opacity: 100,
         params: parameters,
         paramsObject: {}
@@ -866,7 +866,7 @@ export class DTEMapComponent implements OnInit {
       } else {
         layer.layer.setVisible(true);
         layer.visible = true;
-        layer.expanded = true;
+        layer.expanded = false;
         this.initLayerParameters(layer);
         this.listOfSelectedLayers.push(layer);
       }
