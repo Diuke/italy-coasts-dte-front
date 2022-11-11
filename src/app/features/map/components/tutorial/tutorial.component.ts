@@ -45,4 +45,8 @@ export class TutorialComponent implements OnInit, OnDestroy {
     this.page = newPage > this.lastPage ? this.lastPage : newPage;
   }
 
+  closeTutorial(){
+    this.tutorialService.deactiveTutorial();
+  }
+
 }

@@ -40,18 +40,18 @@
             <div class="tab-pane container fade show active" id="nav-context" role="tabpanel"
                 aria-labelledby="nav-context-tab">
                 <div class="context-section">
-                    <span>Select Limits</span>
+                    <span>Maritime Limits</span>
                     <select [disabled]="contextState == CONTEXT_SET" class="form-select"
                         aria-label="Default select example" [(ngModel)]="selectedLimit"
                         (change)="changeSelectedLimit()">
+                        <option value="3">Unbounded</option>
                         <option value="1">12NM sea</option>
                         <option value="2">Official sea limits</option>
-                        <option value="3">Unbounded</option>
                     </select>
                 </div>
 
                 <div class="context-section">
-                    <span>From</span>
+                    <span>From Date</span>
                     <div class="">
                         <input [disabled]="contextState == CONTEXT_SET" [(ngModel)]="dateFrom" type="date"
                             class="form-control">
@@ -59,7 +59,7 @@
                 </div>
 
                 <div class="context-section">
-                    <span>To</span>
+                    <span>To Date</span>
                     <div class="">
                         <input [disabled]="contextState == CONTEXT_SET" [(ngModel)]="dateTo" type="date"
                             class="form-control">
@@ -322,7 +322,7 @@
     -->
     
     <div [class]="{'left-margin': sidebarLeftOpen}" class="basemap-picker ol-control">
-        <button ngbTooltip="Basemaps" [openDelay]="500" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+        <button ngbTooltip="Basemaps" [openDelay]="500" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="margin: 0 auto">
             <fa-icon [icon]="_faLayers"></fa-icon>
         </button>
 
