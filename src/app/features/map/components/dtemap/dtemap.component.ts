@@ -8,7 +8,7 @@ import TileWMS from 'ol/source/TileWMS';
 import Draw from 'ol/interaction/Draw'
 import GeoJSON from 'ol/format/GeoJSON';
 import { fromLonLat } from 'ol/proj';
-import { Tile as TileLayer, Vector as VectorLayer } from 'ol/layer';
+import { Layer, Tile as TileLayer, Vector as VectorLayer } from 'ol/layer';
 import VectorSource from 'ol/source/Vector';
 import ImageArcGISRest from 'ol/source/ImageArcGISRest';
 import Style from 'ol/style/Style';
@@ -34,6 +34,7 @@ import { SharingService } from 'src/app/core/services/sharing.service';
 import { LayerCategory } from 'src/app/core/models/layerModel';
 import { TreeViewComponent } from '../tree-view/tree-view.component';
 import { LayerService } from 'src/app/core/services/layer.service';
+import { IconProp } from '@fortawesome/fontawesome-svg-core';
 
 @Component({
   selector: 'app-dtemap',
@@ -43,17 +44,17 @@ import { LayerService } from 'src/app/core/services/layer.service';
 export class DTEMapComponent implements OnInit {
 
   //CONSTANTS
-  _faDrawPolygon = faDrawPolygon;
-  _faBars = faBars;
-  _faLessThan = faLessThan;
-  _faGreaterThan = faGreaterThan;
-  _faEye = faEye;
-  _faEyeSlash = faEyeSlash;
-  _faChevronUp = faChevronUp;
-  _faChevronDown = faChevronDown;
-  _faInfoCircle = faInfoCircle;
-  _faTrash = faTrash;
-  _faLayers = faLayerGroup;
+  _faDrawPolygon = faDrawPolygon as IconProp;
+  _faBars = faBars as IconProp;
+  _faLessThan = faLessThan as IconProp;
+  _faGreaterThan = faGreaterThan as IconProp;
+  _faEye = faEye as IconProp;
+  _faEyeSlash = faEyeSlash as IconProp;
+  _faChevronUp = faChevronUp as IconProp;
+  _faChevronDown = faChevronDown as IconProp;
+  _faInfoCircle = faInfoCircle as IconProp;
+  _faTrash = faTrash as IconProp;
+  _faLayers = faLayerGroup as IconProp;
 
   scaleLineControl = new ScaleLine();
 
@@ -133,11 +134,14 @@ export class DTEMapComponent implements OnInit {
   basemapSelect: number = this.OSM_BASEMAP; 
 
   osmBasemap = new TileLayer({
+    className: "osm",
     source: new OSM(),
     zIndex: 0
   });
 
   satelliteBasemap: TileLayer<WMTS>;
+
+  activeBasemap: TileLayer<any> = null;
 
   layersHierarchy: LayerCategory[] = [];
   displayLayersHierarchy: LayerCategory[] = [];
@@ -225,6 +229,9 @@ export class DTEMapComponent implements OnInit {
       })
     });
 
+    //Set the OSM basemap as default active basemap
+    this.activeBasemap = this.osmBasemap;
+
     this.map = new Map({
       view: new View({
         center: this.mapCenter,
@@ -261,6 +268,7 @@ export class DTEMapComponent implements OnInit {
       
       options.attributions =  "Sentinel-2 cloudless - https://s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2020)";
       this.satelliteBasemap = new TileLayer({
+        className: "satellite",
         opacity: 1,
         source: new WMTS(options),
         visible: false,
@@ -412,7 +420,7 @@ export class DTEMapComponent implements OnInit {
       let parameters = layerData.parameters;
 
       let layerParams: any = null;
-      let layer: any = null;
+      let layer: Layer<any> = null;
 
       //Non-landcover layers are on top
       let zIndex = layerData.category.name == "Landcover" ? 100 : 101;
@@ -455,17 +463,21 @@ export class DTEMapComponent implements OnInit {
       }
 
       layer.setExtent(aoiLayer.getSource().getExtent());
+
       layer.on('postrender', (e: any) => {
         const vectorContext = getVectorContext(e);
         e.context.globalCompositeOperation = 'destination-in';
+
         if(this.activeBoundaryLayer){
           this.activeBoundaryLayer.getSource().forEachFeature((feature) => {
             vectorContext.drawFeature(feature, style);
           });
         }
+
         aoiLayer.getSource().forEachFeature((feature) => {
           vectorContext.drawFeature(feature, style);
         });
+
         e.context.globalCompositeOperation = 'source-over';
       });
 
@@ -482,49 +494,11 @@ export class DTEMapComponent implements OnInit {
       this.map.addLayer(layer);
       
     }
+    
   }
 
   initWFSLayers() {
     //for all vector (WFS) layers do this:
-    for (let i = 0; i < this.listOfLayersWFS.length; i++) {
-      let layerData = this.listOfLayersWFS[i];
-    }
-    const vectorSource = new VectorSource();
-    const vector = new VectorLayer({
-      source: vectorSource,
-      style: new Style({
-        stroke: new Stroke({
-          color: 'rgba(0, 0, 255, 1.0)',
-          width: 2,
-        }),
-      }),
-    });
-
-    fetch("https://ows.emodnet-humanactivities.eu/wfs?SERVICE=WFS&VERSION=1.1.0&request=GetFeature&typeName=maritimebnds&OUTPUTFORMAT=json&maxfeatures=1", {
-      method: "GET"
-    })
-      .then(resp => {
-        return resp.json();
-      })
-      .then(data => {
-        const features = new GeoJSON().readFeatures(data);
-        vectorSource.addFeatures(features);
-
-        const vector = new VectorLayer({
-          source: vectorSource,
-          style: new Style({
-            stroke: new Stroke({
-              color: 'rgba(0, 0, 255, 1.0)',
-              width: 2,
-            }),
-          }),
-          properties: {
-            cross_origin: 'null'
-          }
-
-        });
-        this.map.addLayer(vector);
-      });
   }
 
   async initLayers() {
@@ -806,7 +780,7 @@ export class DTEMapComponent implements OnInit {
 
           loadedParams++;
           this.loading = loadedParams < paramsToLoad;
-        }, error => {
+        }, (error: any) => {
           loadedParams++;
           this.loading = loadedParams < paramsToLoad;
         });
@@ -827,7 +801,7 @@ export class DTEMapComponent implements OnInit {
 
           loadedParams++;
           this.loading = loadedParams < paramsToLoad;
-        }, error => {
+        }, (error: any) => {
           loadedParams++;
           this.loading = loadedParams < paramsToLoad;
         });
@@ -839,9 +813,11 @@ export class DTEMapComponent implements OnInit {
     if(newBasemap == this.OSM_BASEMAP){
       this.osmBasemap.setVisible(true);
       this.satelliteBasemap.setVisible(false);
+      this.activeBasemap = this.osmBasemap;
     } else {
       this.osmBasemap.setVisible(false);
       this.satelliteBasemap.setVisible(true);
+      this.activeBasemap = this.satelliteBasemap;
     }
   }
 
@@ -1017,7 +993,7 @@ export class DTEMapComponent implements OnInit {
   }
 
   deleteScenario(scenario: ScenarioModel){
-    this.sharingService.deleteScenario(scenario.id).subscribe(data => {
+    this.sharingService.deleteScenario(scenario.id).subscribe((data: any) => {
       console.log(data);
       this.loadScenariosList();
     })
