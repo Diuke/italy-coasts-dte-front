@@ -293,18 +293,21 @@ export class DTEMapComponent implements OnInit {
           this.dataPreviewPopupContent = [];
           this.openPopup(evt.coordinate);
           if(this.listOfSelectedLayers.length === 0){
+            this.loadingClickPopupValues = false;
             this.dataPreviewPopupContent = [{layer: "", value:"No active layers"}];
           } else {
             let params: any = {};
             for(let layer of this.listOfSelectedLayers){
-              for(let i in layer.params){
-                params[layer.params[i]] = layer.paramsObject[layer.params[i]].selected;
+              if(layer.visible){
+                for(let param in layer.params){
+                  params[layer.params[param]] = layer.paramsObject[layer.params[param]].selected;
+                }
+                this.mediator.getData(layer, evt.coordinate, params).then(data => {
+                  this.dataPreviewPopupContent.push(
+                    {layer: layer.data.readable_name + ": ", value: data.value + " " + data.units}
+                  );
+                });
               }
-              this.mediator.getData(layer, this.map.getView().getResolution(), evt.coordinate, params).then(data => {
-                this.dataPreviewPopupContent.push(
-                  {layer: layer.data.readable_name + ": ", value: data.value + " " + data.units}
-                );
-              });
               
             }
             this.loadingClickPopupValues = false;
@@ -574,9 +577,9 @@ export class DTEMapComponent implements OnInit {
     }
   }
 
-  toggleLayerVisibility(layerId: number) {
-    this.layerMap[layerId].visible = !this.layerMap[layerId].visible;
-    this.layerMap[layerId].layer.setVisible(this.layerMap[layerId].visible);
+  setLayerVisibility(layerId: number, visible: boolean) {
+    this.layerMap[layerId].visible = visible;
+    this.layerMap[layerId].layer.setVisible(visible);
   }
 
   toggleLayerExpanded(layerId: number){
@@ -652,9 +655,7 @@ export class DTEMapComponent implements OnInit {
     }
   }
 
-  validateContext(): boolean {
-    console.log(this.dateFrom, this.dateTo);
-    
+  validateContext(): boolean {    
     if(this.dateFrom == "" || this.dateTo == ""){
       return false;
     }
@@ -759,19 +760,22 @@ export class DTEMapComponent implements OnInit {
 
       let globalStartDate = this.globals.contextStartDate;
       let globalEndDate = this.globals.contextEndDate;
-      if(this.loadingScenario){
 
-      }
-      let getDimensionPromise = this.mediator.getDimensionValues(_layer.data, paramName)?.toPromise();
+      
       if(this.loadingScenario){
-        await getDimensionPromise?.then((param_object: any) => {
-          let values = param_object["values"];
+        let dimensionsData = await this.mediator.getDimensionValues(_layer.data, paramName);
+
+        if(dimensionsData == null){
+          loadedParams++;
+          this.loading = loadedParams < paramsToLoad;
+        } else {
+          let values = dimensionsData["values"];
           if(paramName == "time"){
-            values = this.utils.cropListOfDates(globalStartDate, globalEndDate, param_object["values"]);
+            values = this.utils.cropListOfDates(globalStartDate, globalEndDate, dimensionsData["values"]);
           }          
           //format = { default: string, units: string, name: string, values: list
           layer.paramsObject[paramName] = {
-            default: param_object["default"],
+            default: dimensionsData["default"],
             values: values,
             selected: values[0]
           };
@@ -780,19 +784,21 @@ export class DTEMapComponent implements OnInit {
 
           loadedParams++;
           this.loading = loadedParams < paramsToLoad;
-        }, (error: any) => {
-          loadedParams++;
-          this.loading = loadedParams < paramsToLoad;
-        });
+        }
+
       } else {
-        getDimensionPromise?.then((param_object: any) => {
-          let values = param_object["values"];
+        let dimensionsData = await this.mediator.getDimensionValues(_layer.data, paramName);
+        if(dimensionsData == null){
+          loadedParams++;
+          this.loading = loadedParams < paramsToLoad;
+        } else {
+          let values = dimensionsData["values"];
           if(paramName == "time"){
-            values = this.utils.cropListOfDates(globalStartDate, globalEndDate, param_object["values"]);
+            values = this.utils.cropListOfDates(globalStartDate, globalEndDate, dimensionsData["values"]);
           }          
           //format = { default: string, units: string, name: string, values: list
           layer.paramsObject[paramName] = {
-            default: param_object["default"],
+            default: dimensionsData["default"],
             values: values,
             selected: values[0]
           };
@@ -801,10 +807,7 @@ export class DTEMapComponent implements OnInit {
 
           loadedParams++;
           this.loading = loadedParams < paramsToLoad;
-        }, (error: any) => {
-          loadedParams++;
-          this.loading = loadedParams < paramsToLoad;
-        });
+        }
       }
     }
   }
@@ -823,12 +826,14 @@ export class DTEMapComponent implements OnInit {
 
   handleLayerManipulation(data: { id: number, event: string, value: any }) {
     if (data.event == "visibility") {
-      this.toggleLayerVisibility(data.id);
+      this.closePopup();
+      this.setLayerVisibility(data.id, data.value);
     }
     else if (data.event == "opacity") {
       this.setLayerOpacity(data.id, data.value);
     }
     else if (data.event == "selected") {
+      this.closePopup();
       let layer = this.layerMap[data.id];
       this.layerService.changeLayerSelected(data.id, data.value);
       if (this.listOfSelectedLayers.includes(layer)) {
@@ -885,6 +890,7 @@ export class DTEMapComponent implements OnInit {
       },
 
       layers: Object.values(this.listOfSelectedLayers).map((element) => {
+        debugger
         return {
           id: element.data.id,
           expanded: element.expanded,
@@ -917,7 +923,6 @@ export class DTEMapComponent implements OnInit {
 
   uploadAplicationStateFile(files: any){
     let file = files[0];
-    console.log(file);
     
     if (file) {
       var reader = new FileReader();
@@ -953,8 +958,6 @@ export class DTEMapComponent implements OnInit {
       this.aoiVectorLayer.setVisible(true);
       await this.setContext();
 
-      console.log(this.treeViewComponent);
-      console.log(state!.layers);
       this.listOfSelectedLayers = [];
       for(let scenarioLayer of state!.layers){
         let layer = this.layerMap[scenarioLayer.id];
@@ -971,14 +974,12 @@ export class DTEMapComponent implements OnInit {
         this.listOfSelectedLayers.push(layer);      
       }
       this.triggerChangeLayers += 1;
-      console.log("finished loading layers");
       
       this.analysisUnits = state!.analysisUnits;  
       this.loadingScenario = false;   
     } catch (error) {
       this.resetContext();
       this.loadingScenario = false;  
-      console.log(error);
       console.log('Error loading scenario');
     }
   }
@@ -994,7 +995,6 @@ export class DTEMapComponent implements OnInit {
 
   deleteScenario(scenario: ScenarioModel){
     this.sharingService.deleteScenario(scenario.id).subscribe((data: any) => {
-      console.log(data);
       this.loadScenariosList();
     })
   }
@@ -1017,7 +1017,6 @@ export class DTEMapComponent implements OnInit {
 
   loadScenariosList(){
     this.sharingService.loadUserScenarios().subscribe((data: any) => {
-      console.log(data);
       this.userScenarios = data;
     });
   }

@@ -29,7 +29,6 @@ export class UtilsService {
 
   //valueList is a matrix. For each row, it contains a list of the values to insert.
   csvStringFromData(headers: string[], valueList: any[][], prevData?: string[]){
-    console.log(headers, valueList);
     let csvString = "";
     if(prevData){
       for(let prev of prevData){
@@ -44,7 +43,6 @@ export class UtilsService {
       csvString += valueList[i].join(",");
       csvString += "\n";
     }
-    console.log(csvString);
     
     return csvString;
   }

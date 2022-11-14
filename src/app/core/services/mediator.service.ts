@@ -1,102 +1,226 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { LayerModel } from '../models/layerModel';
 import { MapLayerModel } from '../models/mapLayerModel';
-import { CopernicusLandMonitoringServiceService } from './drivers/copernicus-land-monitoring-service.service';
-import { CopernicusMarineServicesService } from './drivers/copernicus-marine-services.service';
-import { WorldpopService } from './drivers/worldpop.service';
+import { GlobalsService } from './globals.service';
+import { UrlsService } from './urls.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class MediatorService {
 
+  public static GET_DATA_POINT_TYPE = "point";
+  public static GET_DATA_AREA_TYPE = "area";
+  public static GET_DATA_DEPTH_PROFILE_TYPE = "depth_profile";
+  public static GET_DATA_TIME_SERIES_TYPE = "time_series";
+
+  private url_templates = {
+    "dimension_values": "/api/dte/mediator/list-parameter-values", // /layer_id/param_name
+    "getData": "/api/dte/mediator/get-data",
+    "getTimeSeries": "/api/dte/mediator/get-data",
+    "getDepthProfile": "/api/dte/mediator/get-data",
+    "getAreaData": "/api/dte/mediator/get-data"
+  }
+
   constructor(
-    private copernicusMarineServicesDriver: CopernicusMarineServicesService,
-    private copernicusLandServicesDriver: CopernicusLandMonitoringServiceService,
-    private worldpopDriver: WorldpopService
+    private http: HttpClient,
+    public globalService: GlobalsService,
+    private urlService: UrlsService
   ) { }
 
-  getMetadata(layer: LayerModel, item: string){
-    if(layer.source == "Copernicus Marine Services"){
-      return this.copernicusMarineServicesDriver.requestMetadata(layer, item);
-    }
+  /////////////////////////////////////////////////////////////////////////////////////////////
+  // PUBLIC GET METHODS //////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////
 
-    return null;
+  public getTimestamps(){
   }
 
-  getTimestamps(){
+  public getDimensionValues(layer: LayerModel, dimension: string){
+    return this.requestDimensionData(layer, dimension);
   }
 
-  getDimensionValues(layer: LayerModel, dimension: string){
-    if(layer.source == "Copernicus Marine Services"){
-      return this.copernicusMarineServicesDriver.requestDimensionData(layer, dimension);
-    }
-
-    return null;
+  public getData(layer: MapLayerModel, coordinates: any, params?: any) {
+    let layerData = this.requestData(layer, coordinates, params);
+    return layerData;
   }
 
-  async getTimeSeries(layer: MapLayerModel, mapResolution: any, coordinates: any, startDate: string, endDate: string, elevation: string | null) {
-    if(layer.data.source == "Copernicus Marine Services"){
-      let layerData = this.copernicusMarineServicesDriver.requestTimeSeries(layer, mapResolution, coordinates, startDate, endDate, elevation);
-      return layerData;
+  public getTimeSeries(layer: MapLayerModel, coordinates: any, startDate: string, endDate: string, elevation: string | null) {
+    let params = {
+      start_date: startDate,
+      end_date: endDate,
     }
-
-    else {
-      return {value: null, units: null};
+    if(elevation != null){
+      params["elevation"] = elevation;
     }
+    let layerData = this.requestTimeSeries(layer, coordinates, params);
+    return layerData;
   }
 
-  async getDepthProfile(layer: MapLayerModel, mapResolution: any, coordinates: any, time: string) {
-    if(layer.data.source == "Copernicus Marine Services"){
-      let layerData = this.copernicusMarineServicesDriver.requestDepthProfile(layer, mapResolution, coordinates, time);
-      return layerData;
-    }
-
-    else {
-      return {value: null, units: null};
-    }
+  public getDepthProfile(layer: MapLayerModel, coordinates: any, params: any) {    
+    let layerData = this.requestDepthProfile(layer, coordinates, params);
+    return layerData;
   }
 
-  async getAreaData(layer: MapLayerModel, bbox: number[], polygon: string, numberOfClasses: number, resolution: string, params?: any) {
-    if(layer.data.source == "Copernicus Marine Services"){
-      let layerData = this.copernicusMarineServicesDriver.requestAreaData(layer, bbox, polygon, numberOfClasses, resolution, params);
-      return layerData;
-    }
-
-    else if(layer.data.source == "Copernicus Land Monitoring Service"){
-      let layerData = this.copernicusLandServicesDriver.requestAreaData(layer, bbox, polygon, numberOfClasses, resolution, params);
-      return layerData;
-    }
-
-    else if(layer.data.source == "WorldPop"){
-      //let layerData = this.worldpopDriver.requestData(layer, mapResolution, coordinates);
-      //return layerData;
-    }
-
-    else {
-      //return {value: null, units: null};
-    }
+  public getAreaData(layer: MapLayerModel, params: any) {
+    let layerData = this.requestAreaData(layer, params);
+    return layerData;
   }
 
-  async getData(layer: MapLayerModel, mapResolution: any, coordinates: any, params?: any) {
-    if(layer.data.source == "Copernicus Marine Services"){
-      let layerData = this.copernicusMarineServicesDriver.requestData(layer, mapResolution, coordinates, params);
-      return layerData;
+  /////////////////////////////////////////////////////////////////////////////////////////////
+  // PRIVATE REQUESTS ////////////////////////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////////
+
+  // The available parameters are in the GetCapabilities request
+  private async requestDimensionData(layer: LayerModel, dimension: string){
+    let url = this.urlService.BASE_PATH + this.url_templates["dimension_values"] + "/" + layer.id + "/" + dimension;
+
+    let resp: any = null;
+    if (url) {
+      let request = this.http.get(url).toPromise();
+      await request.then(data => {
+        resp = data;
+      }).catch(error => {
+        resp = null;
+      });
+    }
+    return resp;
+  }
+
+  private async requestData(layer_model: MapLayerModel, coordinates: number[], params?: any): Promise<{value: any, units: string}> {
+    let url = this.urlService.BASE_PATH + this.url_templates["getData"];
+    let latMin = coordinates[0];
+    let lngMin = coordinates[1];
+    let latMax = latMin + 0.1; //0.1 meters bbox
+    let lngMax = lngMin + 0.1; //0.1 meters bbox
+    let bbox = latMin.toString() + "," + lngMin.toString() + "," + latMax.toString() + "," + lngMax.toString(); 
+
+    if(params){
+      params["bbox"] = bbox;
+    } else {
+      params = {
+        bbox: bbox
+      };
     }
 
-    else if(layer.data.source == "Copernicus Land Monitoring Service"){
-      let layerData = this.copernicusLandServicesDriver.requestData(layer, mapResolution, coordinates);
-      return layerData;
+    let resp: any = null;
+    let body = {
+      layer_id: layer_model.data.id,
+      type: MediatorService.GET_DATA_POINT_TYPE,
+      params: params
+    };
+    
+    if (url) {
+      let request = this.http.post(url, body).toPromise();
+      await request.then(data => {
+        resp = data;
+      }).catch(error => {
+        resp = null;
+      });
     }
+    return resp;
+  }
 
-    else if(layer.data.source == "WorldPop"){
-      let layerData = this.worldpopDriver.requestData(layer, mapResolution, coordinates);
-      return layerData;
-    }
+  /**
+   * 
+   * @param layer_model 
+   * @param coordinates 
+   * @param params should have bbox, start_date, end_date. Other dimensions are optional.
+   * @returns 
+   */
+  private async requestTimeSeries(layer_model: MapLayerModel, coordinates: number[], params: any){
+    let url = this.urlService.BASE_PATH + this.url_templates["getTimeSeries"];
+    let latMin = coordinates[0];
+    let lngMin = coordinates[1];
+    let latMax = latMin + 0.1; //0.1 meters bbox
+    let lngMax = lngMin + 0.1; //0.1 meters bbox
+    let bbox = latMin.toString() + "," + lngMin.toString() + "," + latMax.toString() + "," + lngMax.toString(); 
+    params["bbox"] = bbox;
 
-    else {
-      return {value: null, units: null};
+    let resp: any = null;
+    let body = {
+      layer_id: layer_model.data.id,
+      type: MediatorService.GET_DATA_TIME_SERIES_TYPE,
+      params: params
+    };
+
+    if (url) {
+      let request = this.http.post(url, body).toPromise();
+      await request.then(data => {
+        resp = data;
+      }).catch(error => {
+        resp = null;
+      });
     }
+    return resp;
+  }
+
+  /**
+   * 
+   * @param layer_model 
+   * @param coordinates 
+   * @param params should be bbox and optionally time or other dimensions.
+   * @returns 
+   */
+  private async requestDepthProfile(layer_model: MapLayerModel, coordinates: number[], params: any){
+    console.log(params);
+    
+    let url = this.urlService.BASE_PATH + this.url_templates["getDepthProfile"];
+    let latMin = coordinates[0];
+    let lngMin = coordinates[1];
+    let latMax = latMin + 0.1; //0.1 meters bbox
+    let lngMax = lngMin + 0.1; //0.1 meters bbox
+    let bbox = latMin.toString() + "," + lngMin.toString() + "," + latMax.toString() + "," + lngMax.toString(); 
+    params["bbox"] = bbox;
+
+    let resp: any = null;
+    let body = {
+      layer_id: layer_model.data.id,
+      type: MediatorService.GET_DATA_DEPTH_PROFILE_TYPE,
+      params: params
+    };
+
+    if (url) {
+      let request = this.http.post(url, body).toPromise();
+      await request.then(data => {
+        resp = data;
+      }).catch(error => {
+        resp = null;
+      });
+    }
+    return resp;
+  }
+
+  /**
+   * 
+   * @param layer_model 
+   * @param params bbox, resolution, polygon, classes, optional dimensions.
+   * @returns 
+   */
+  private async requestAreaData(layer_model: MapLayerModel, params: any){
+    let url = this.urlService.BASE_PATH + this.url_templates["getAreaData"];
+    let body = {
+      layer_id: layer_model.data.id,
+      type: MediatorService.GET_DATA_AREA_TYPE,
+      params: params
+      // bbox: bbox.join(","),
+      // time: time,
+      // elevation: elevation,
+      // resolution: resolution,
+      // polygon: polygonGeoJSON,
+      // classes: numberOfClasses
+    };
+
+    let resp: any = null;
+    if (url) {
+      let request = this.http.post(url, body).toPromise();
+      await request.then(data => {
+        resp = data;
+      }).catch(error => {
+        resp = null;
+      });
+    }
+    return resp;
   }
 
 }

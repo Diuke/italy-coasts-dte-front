@@ -185,10 +185,10 @@
                                         </div>
                                         <div class="col-1">
                                             <fa-icon *ngIf="layer.visible" class="eye-visible selectable"
-                                                [icon]="_faEye" (click)="toggleLayerVisibility(layer.data.id)">
+                                                [icon]="_faEye" (click)="handleLayerManipulation({ id: layer.data.id, value: false, event: 'visibility' })">
                                             </fa-icon>
                                             <fa-icon *ngIf="!layer.visible" class="eye-invisible selectable"
-                                                [icon]="_faEyeSlash" (click)="toggleLayerVisibility(layer.data.id)">
+                                                [icon]="_faEyeSlash" (click)="handleLayerManipulation({ id: layer.data.id, value: true, event: 'visibility' })">
                                             </fa-icon>
                                         </div>
                                         <div class="col-1">
@@ -206,16 +206,18 @@
                                             <label class="form-label">Opacity</label>
                                             <input type="range" [(ngModel)]="layer.opacity" min="0" max="100"
                                                 class="form-range"
-                                                (change)="setLayerOpacity(layer.data.id, layer.opacity)">
+                                                (change)="handleLayerManipulation({ id: layer.data.id, value: layer.opacity, event: 'opacity' })">
                                         </div>
                                         <hr>
                                         <div *ngFor="let param of layer.params">
-                                            <label class="form-label">{{param}}</label>
-                                            <select [(ngModel)]="layer.paramsObject[param].selected"
-                                                (change)="setLayerParameter(layer.data.id)" class="form-select">
-                                                <option *ngFor="let optionValue of layer.paramsObject[param].values"
-                                                    [value]="optionValue">{{optionValue}}</option>
-                                            </select>
+                                            <div *ngIf="layer.paramsObject[param] && layer.paramsObject[param].selected != undefined">
+                                                <label class="form-label">{{param}}</label>
+                                                <select [(ngModel)]="layer.paramsObject[param].selected"
+                                                    (change)="setLayerParameter(layer.data.id)" class="form-select">
+                                                    <option *ngFor="let optionValue of layer.paramsObject[param].values"
+                                                        [value]="optionValue">{{optionValue}}</option>
+                                                </select>
+                                            </div>
                                         </div>
 
                                         <div class="mt-4">
@@ -332,14 +334,6 @@
         </ul>
 
     </div>
-    <!--
-    <div class="basemap-picker" id="basemap-picker" [class]="{'left-margin': sidebarLeftOpen}">
-        <select [(ngModel)]="basemapSelect" class="form-select" name="basemapSelect" id="basemapSelect" (change)="changeBasemap()">
-            <option [value]="OSM_BASEMAP">OpenStreetMap</option>
-            <option [value]="SATELLITE_BASEMAP">Satellite - Sentinel-2 Cloudless</option>
-        </select>
-    </div>
-    -->
 
     <div class="map-container" [class]="{'left-margin': sidebarLeftOpen, 'right-margin': sidebarRightOpen}" id="map">
         <!--
@@ -352,16 +346,18 @@
         -->
     </div>
 
+    <!-- Click Popup START -->
     <div id="dataPreviewPopup" class="ol-popup">
         <a style="cursor: pointer;" id="popup-closer" class="ol-popup-closer" (click)="closePopup()"></a>
         <div class="spinner-border" role="status" *ngIf="loadingClickPopupValues">
             <span class="sr-only">Loading...</span>
         </div>
-        <div id="dataPreviewPopupContent" *ngFor="let value of dataPreviewPopupContent">
+        <div id="dataPreviewPopupContent" *ngFor="let value of dataPreviewPopupContent; let i = index">
             <span>{{value?.layer}}</span>
             <span>{{value?.value}}</span>
-            <hr>
+            <hr *ngIf="i < dataPreviewPopupContent.length-1">
         </div>
     </div>
+    <!-- Click Popup END -->
 
 </div>

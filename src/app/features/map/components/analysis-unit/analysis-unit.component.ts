@@ -180,7 +180,6 @@ export class AnalysisUnitComponent implements OnInit, OnDestroy {
 
   performPointAnalysis(){
     let analysisCoordinates = transform(this.pointCoordinates, 'EPSG:4326', 'EPSG:3857');
-    let mapResolution = this.mapService.getMap()?.getView().getResolution();
     this.graphDepthProfile = [];
     this.graphTimeSeries = []; 
     this.singlePointMonotemporalAnalysis = [];
@@ -196,7 +195,12 @@ export class AnalysisUnitComponent implements OnInit, OnDestroy {
 
       //Extract data
       this.showMonotemporal = true;
-      let dataPromise = this.mediator.getData(layer.model, mapResolution, analysisCoordinates);
+      let pointParams = {};
+      for(let p of layer.model.params){
+        pointParams[p] = layer.model.paramsObject[p].selected;
+      }
+      
+      let dataPromise = this.mediator.getData(layer.model, analysisCoordinates, pointParams);
       dataPromise.then((data) => {
         let dataPoint = {
           readable_name: layer.model.data.readable_name,
@@ -211,7 +215,7 @@ export class AnalysisUnitComponent implements OnInit, OnDestroy {
         let startDate = timeSeriesX[timeSeriesX.length - 1];
         let endDate = timeSeriesX[0];
         let elevation = layer.model.params.includes("elevation") ? layer.model.paramsObject['elevation'].selected : null;
-        let dataPromise = this.mediator.getTimeSeries(layer.model, mapResolution, analysisCoordinates, startDate, endDate, elevation);
+        let dataPromise = this.mediator.getTimeSeries(layer.model, analysisCoordinates, startDate, endDate, elevation);
 
         dataPromise.then((data) => {
           let plot = {
@@ -247,7 +251,10 @@ export class AnalysisUnitComponent implements OnInit, OnDestroy {
       if(layer.depthProfileAvailable){
         this.showDepthProfile = true;
         let time = layer.model.paramsObject["time"].selected;
-        let dataPromise = this.mediator.getDepthProfile(layer.model, mapResolution, analysisCoordinates, time);
+        let params = {
+          time: time
+        }
+        let dataPromise = this.mediator.getDepthProfile(layer.model, analysisCoordinates, params);
         
         dataPromise.then((data) => {
           let plot = {
@@ -296,17 +303,23 @@ export class AnalysisUnitComponent implements OnInit, OnDestroy {
     this.areaResults = [];
     
     for(let [i, layer] of this.layers.entries()){
-      let params: any = {};
+
+      let resolution = this.samplingSelector == this.HIGH_RESOLUTION ? "high" : "low";
+      let areaParams = {
+        bbox: bbox.join(","),
+        resolution: resolution,
+        polygon: polygonGeoJSON,
+        classes: classes
+      }
       if(layer.model.params.includes("time")){
-        params["time"] = layer.model.paramsObject["time"].selected;
+        areaParams["time"] = layer.model.paramsObject["time"].selected;
       }
 
       if(layer.model.params.includes("elevation")){
-        params["elevation"] = layer.model.paramsObject["elevation"].selected
+        areaParams["elevation"] = layer.model.paramsObject["elevation"].selected
       }
-
-      let resolution = this.samplingSelector == this.HIGH_RESOLUTION ? "high" : "low";
-      let dataPromise = this.mediator.getAreaData(layer.model, bbox, polygonGeoJSON.toString(), classes, resolution, params=params);
+      let dataPromise = this.mediator.getAreaData(layer.model, areaParams);
+      
       dataPromise.then((data) => {
         let dataMatrix = {
           readable_name: layer.model.data.readable_name,
